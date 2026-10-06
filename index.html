@@ -1,0 +1,1606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Picture Buzzer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%94%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0e1124; --bg2:#151a36; --card:#1b2146; --card2:#242b58; --line:#323a70;
+  --text:#f4f6ff; --muted:#a9b0d6; --accent:#ffd23f; --green:#29d17d; --red:#ff4d5e; --blue:#4da3ff; --orange:#ff9f43;
+  --radius:14px; --shadow:0 10px 30px rgba(0,0,0,.35);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:radial-gradient(1200px 700px at 20% -10%, #232a63 0%, var(--bg) 60%) fixed;color:var(--text);font-size:16px;line-height:1.35;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;border-radius:10px;padding:.6em 1em;background:var(--card2);color:var(--text);font-weight:650;transition:transform .05s, filter .15s, background .15s;white-space:nowrap}
+button:hover{filter:brightness(1.15)}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.4;cursor:not-allowed;filter:none}
+button.primary{background:var(--accent);color:#1b1600}
+button.green{background:var(--green);color:#03210f}
+button.red{background:var(--red);color:#fff}
+button.blue{background:var(--blue);color:#021428}
+button.ghost{background:transparent;border:1px solid var(--line)}
+button.small{padding:.3em .6em;font-size:.85em;border-radius:8px}
+input,select,textarea{background:#0b0e20;border:1px solid var(--line);border-radius:10px;padding:.55em .7em;outline:none;min-width:0}
+input:focus,textarea:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(77,163,255,.25)}
+textarea{resize:vertical}
+a{color:var(--blue)}
+.hidden{display:none !important}
+.muted{color:var(--muted)}
+.row{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.col{display:flex;flex-direction:column;gap:.6rem}
+.grow{flex:1}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:1rem;box-shadow:var(--shadow)}
+.pill{display:inline-flex;align-items:center;gap:.4em;padding:.25em .7em;border-radius:999px;background:var(--card2);font-weight:700;font-size:.85em;letter-spacing:.02em}
+.dot{width:.65em;height:.65em;border-radius:50%;display:inline-block;background:#666;flex:none}
+.dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.dot.warn{background:var(--orange)}
+.dot.off{background:#555}
+.code{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;letter-spacing:.12em}
+h1,h2,h3{margin:0}
+.toast{position:fixed;left:50%;bottom:1.2rem;transform:translateX(-50%);background:#000c;border:1px solid var(--line);padding:.7em 1.1em;border-radius:12px;z-index:99;font-weight:600;max-width:90vw;text-align:center}
+.imgpair{display:flex;gap:1rem;justify-content:center;align-items:center;width:100%;height:100%;min-height:0}
+.imgpair .imgbox{position:relative;flex:1 1 0;min-width:0;height:100%;display:flex;align-items:center;justify-content:center}
+.imgpair img{max-width:100%;max-height:100%;object-fit:contain;border-radius:10px;display:block;background:#0003}
+.imgpair .tag{position:absolute;top:.4em;left:.4em;background:#000b;color:#fff;font-weight:800;border-radius:8px;padding:.1em .55em;font-size:1.1em}
+.imgpair .loading{color:var(--muted);font-weight:600;padding:2rem;text-align:center}
+.spinner{width:2.2em;height:2.2em;border:.3em solid #fff3;border-top-color:var(--accent);border-radius:50%;animation:spin 0.9s linear infinite;margin:0 auto .6em}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- landing ---------- */
+.landing{max-width:760px;margin:0 auto;padding:2.5rem 1rem}
+.landing h1{font-size:2.6rem;margin-bottom:.3rem}
+.landing .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:1.5rem}
+.landing .card h2{font-size:1.3rem;margin-bottom:.5rem}
+
+/* ---------- host ---------- */
+.host{display:flex;flex-direction:column;min-height:100vh}
+.topbar{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;padding:.7rem 1rem;background:#0b0e20cc;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;backdrop-filter:blur(6px)}
+.brand{font-weight:900;font-size:1.25rem;letter-spacing:.01em}
+.roomcode{font-size:1.6rem;font-weight:900;color:var(--accent)}
+.tabs{display:flex;gap:.3rem}
+.tabs button{background:transparent;border:1px solid transparent}
+.tabs button.active{background:var(--card2);border-color:var(--line)}
+.hostmain{display:grid;grid-template-columns:320px 1fr;gap:1rem;padding:1rem;flex:1;min-height:0}
+@media (max-width:1000px){.hostmain{grid-template-columns:1fr}}
+.side{display:flex;flex-direction:column;gap:1rem}
+.plist{display:flex;flex-direction:column;gap:.5rem}
+.prow{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:.45rem;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:.45rem .55rem;border-left-width:6px}
+.prow .pname{font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow .pscore{font-size:1.5rem;font-weight:900;min-width:2.2ch;text-align:center}
+.prow.winner{outline:3px solid var(--accent)}
+.prow.locked{opacity:.55}
+.prow .menu{display:flex;gap:.25rem}
+.buzzbar{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;border-radius:var(--radius);padding:1rem 1.2rem;font-size:1.35rem;font-weight:800;border:2px solid var(--line);background:var(--bg2)}
+.buzzbar.open{border-color:var(--green);background:#0f2a22}
+.buzzbar.winner{border-color:var(--accent);background:#2e2a10;animation:pulse 1s ease-in-out infinite alternate}
+.buzzbar.locked{border-color:var(--line)}
+@keyframes pulse{from{box-shadow:0 0 0 0 #ffd23f55}to{box-shadow:0 0 0 10px #ffd23f00}}
+.controls{display:flex;flex-wrap:wrap;gap:.5rem}
+.controls button{font-size:1rem}
+.kbd{font-family:ui-monospace,monospace;font-size:.75em;opacity:.7;margin-left:.35em;border:1px solid #fff4;border-radius:4px;padding:0 .3em}
+.stagehost{display:grid;grid-template-columns:3fr 2fr;gap:1rem;min-height:0}
+@media (max-width:1300px){.stagehost{grid-template-columns:1fr}}
+.stagehost .imgarea{height:min(52vh,560px)}
+.answerbox{border:2px dashed var(--orange);border-radius:var(--radius);padding:.7rem;display:flex;flex-direction:column;gap:.5rem;background:#2a1d0b55}
+.answerbox .lbl{color:var(--orange);font-weight:800;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase}
+.answerbox .imgarea{height:min(34vh,380px)}
+.note{white-space:pre-wrap;font-size:1.05rem}
+.strip{display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.4rem}
+.strip .th{flex:none;width:96px;height:62px;border-radius:8px;border:2px solid var(--line);background:#000 center/cover no-repeat;position:relative;cursor:pointer}
+.strip .th.cur{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.strip .th span{position:absolute;left:3px;bottom:2px;background:#000a;border-radius:5px;padding:0 .3em;font-size:.75rem;font-weight:800}
+.roundhead{display:flex;align-items:baseline;gap:.8rem;flex-wrap:wrap}
+.roundhead .rn{font-size:1.1rem;color:var(--muted);font-weight:800}
+.roundhead .rt{font-size:1.5rem;font-weight:850}
+.roundhead .rp{font-size:1.15rem;color:#dfe3ff}
+.setup{padding:1rem;display:flex;flex-direction:column;gap:1rem;max-width:1400px;width:100%;margin:0 auto}
+.drop{border:3px dashed var(--line);border-radius:var(--radius);padding:1.6rem;text-align:center;transition:.15s;background:var(--bg2)}
+.drop.over{border-color:var(--accent);background:#2e2a1055}
+.drop b{font-size:1.2rem}
+.rlist{display:flex;flex-direction:column;gap:.6rem}
+.rrow{display:grid;grid-template-columns:42px auto 1fr auto;gap:.7rem;align-items:start;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:.6rem}
+.rrow.cur{border-color:var(--accent)}
+.rrow .num{font-weight:900;font-size:1.3rem;color:var(--muted);text-align:center;padding-top:.3rem}
+.slots{display:flex;gap:.4rem}
+.slot{width:110px;height:72px;border-radius:8px;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--muted);cursor:pointer;position:relative;background:#000 center/contain no-repeat;text-align:center}
+.slot.filled{border-style:solid}
+.slot .lab{position:absolute;left:2px;top:2px;background:#000b;color:#fff;font-size:.65rem;font-weight:800;border-radius:4px;padding:0 .3em}
+.slot .x{position:absolute;right:2px;top:2px;background:#000b;border-radius:4px;padding:0 .35em;color:#fff;font-weight:900;font-size:.8rem}
+.slot.over{border-color:var(--accent)}
+.fields{display:grid;grid-template-columns:1fr 1fr 90px;gap:.4rem}
+.fields textarea{grid-column:1 / -1;min-height:2.6em}
+.rbtns{display:flex;flex-direction:column;gap:.3rem}
+.settings label{display:flex;gap:.5rem;align-items:center}
+.linkbox{display:flex;gap:.4rem}
+.linkbox input{flex:1;font-size:.8rem}
+.help{max-width:900px;margin:0 auto;padding:1rem 1rem 3rem}
+.help h2{margin:1.2rem 0 .4rem}
+.help code{background:#000a;border-radius:5px;padding:.05em .35em}
+.progress{height:8px;background:#0006;border-radius:99px;overflow:hidden}
+.progress>div{height:100%;background:var(--accent);width:0;transition:width .2s}
+
+/* ---------- player ---------- */
+.player{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:1100px;margin:0 auto;padding:.6rem .7rem calc(.6rem + env(safe-area-inset-bottom));gap:.55rem}
+.phead{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.phead .me{font-weight:850;font-size:1.15rem}
+.phead .myscore{font-weight:900;color:var(--accent);font-size:1.15rem}
+.pstatus{text-align:center;font-weight:850;font-size:1.25rem;padding:.55rem;border-radius:12px;background:var(--bg2);border:2px solid var(--line)}
+.pstatus.open{border-color:var(--green);color:#b6ffd8}
+.pstatus.win{border-color:var(--accent);background:#3a3210;color:#fff3b8}
+.pstatus.other{border-color:var(--orange)}
+.pstatus.out{border-color:var(--red);color:#ffc2c8}
+.pstatus.rev{border-color:var(--blue)}
+.pstage{flex:1;min-height:120px;display:flex;flex-direction:column;gap:.4rem}
+.pstage .imgarea{flex:1;min-height:0}
+.pprompt{text-align:center;font-weight:750;font-size:1.1rem}
+.panswer{background:#0e2a44;border:2px solid var(--blue);border-radius:12px;padding:.5rem .8rem;font-size:1.05rem;white-space:pre-wrap;max-height:30vh;overflow:auto}
+.buzz{width:100%;height:min(24vh,190px);min-height:96px;border-radius:24px;font-size:clamp(2.2rem,9vw,4rem);font-weight:950;letter-spacing:.04em;background:var(--red);color:#fff;box-shadow:0 10px 0 #9b1e2b, 0 18px 30px #0008;touch-action:manipulation;user-select:none;-webkit-user-select:none;flex:none}
+.buzz:active:not(:disabled){transform:translateY(6px);box-shadow:0 4px 0 #9b1e2b}
+.buzz.armed{animation:armed 1.2s ease-in-out infinite}
+@keyframes armed{50%{filter:brightness(1.18)}}
+.buzz:disabled{background:#3a3f63;box-shadow:0 6px 0 #22264a;color:#c9cdea;opacity:1}
+.buzz.win{background:var(--accent);color:#2a2100;box-shadow:0 6px 0 #a88600}
+.buzz.pressed{filter:brightness(.8)}
+.scores{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center}
+.chip{display:flex;align-items:center;gap:.45em;padding:.3em .75em;border-radius:999px;background:var(--bg2);border:2px solid var(--line);font-weight:750}
+.chip b{font-size:1.15em}
+.chip.win{border-color:var(--accent);background:#3a3210}
+.chip.out{opacity:.5;text-decoration:line-through}
+.chip.me{box-shadow:0 0 0 2px #fff5}
+.join{max-width:460px;margin:8vh auto;padding:1rem}
+.join .card{display:flex;flex-direction:column;gap:.8rem}
+.join input{font-size:1.3rem}
+.pickbtns{display:flex;flex-wrap:wrap;gap:.5rem}
+.pickbtns button{font-size:1.1rem}
+.connbar{font-size:.85rem;display:flex;align-items:center;gap:.4em}
+
+/* ---------- stream (designed for 1920x1080, scales with viewport) ---------- */
+.stream{position:fixed;inset:0;display:flex;flex-direction:column;padding:1.6vh 1.6vw;gap:1.2vh;overflow:hidden;font-size:1vw}
+body.bg-dark{background:radial-gradient(120vw 80vh at 30% -10%, #232a63 0%, #0b0d1d 65%)}
+body.bg-transparent{background:transparent !important}
+body.bg-green{background:#00b140 !important}
+body.bg-black{background:#000 !important}
+.s-top{display:flex;align-items:center;gap:1.2vw;flex:none}
+.s-panel{background:#0b0e22e6;border:.12vw solid #ffffff22;border-radius:1vw;padding:.7vh 1.2vw}
+.s-round{font-size:1.5em;font-weight:900;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.s-title{font-size:2.1em;font-weight:900;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s-state{font-size:1.5em;font-weight:900;white-space:nowrap;letter-spacing:.04em}
+.s-state.open{color:var(--green)} .s-state.locked{color:var(--muted)} .s-state.winner{background:var(--c,#ffd23f);color:#111;animation:pulse 1s ease-in-out infinite alternate} .s-state.rev{color:var(--blue)}
+.s-host{font-size:1.2em;color:var(--muted);white-space:nowrap}
+.s-prompt{font-size:2em;font-weight:800;text-align:center;flex:none}
+.s-stage{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;gap:1vh}
+.s-stage .imgarea{flex:1;min-height:0}
+.s-stage .imgpair{gap:1.2vw}
+.s-stage .imgpair img{border-radius:.8vw;box-shadow:0 1vh 3vh #000a}
+.s-stage .imgpair .tag{font-size:2.2em;border-radius:.6vw;padding:.1em .5em;top:.5vh;left:.5vw}
+.s-answer{flex:none;font-size:2em;font-weight:800;background:#0e2a44f0;border:.18vw solid var(--blue);border-radius:1vw;padding:.8vh 1.4vw;white-space:pre-wrap;max-height:22vh;overflow:hidden;text-align:center}
+.s-answer .lbl{color:var(--blue);margin-right:.5em}
+.s-revealtag{position:absolute;top:1vh;right:1vw;background:var(--blue);color:#021428;font-weight:950;font-size:1.8em;padding:.2em .7em;border-radius:.6vw;z-index:3}
+.s-scores{display:flex;gap:1vw;justify-content:center;flex:none}
+.s-card{display:flex;align-items:center;gap:1vw;background:#0b0e22ee;border:.2vw solid #ffffff22;border-left:.7vw solid var(--c,#888);border-radius:1vw;padding:.8vh 1.4vw;min-width:12vw;transition:transform .2s}
+.s-card .n{font-size:2em;font-weight:850;max-width:18vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s-card .s{font-size:3em;font-weight:950;margin-left:auto}
+.s-card.win{border-color:var(--accent);transform:scale(1.08);box-shadow:0 0 3vh #ffd23f88}
+.s-card.out{opacity:.45}
+.s-card.out .n::after{content:" ✕";color:var(--red)}
+.s-card.off .n{opacity:.6}
+.s-banner{position:absolute;left:50%;top:38%;transform:translateX(-50%);z-index:5;font-size:5em;font-weight:950;padding:.15em .8em;border-radius:1.2vw;background:var(--c,#ffd23f);color:#111;box-shadow:0 1.5vh 5vh #000c;white-space:nowrap;text-shadow:0 .05em 0 #fff6}
+.s-banner.pop{animation:pop .5s cubic-bezier(.2,1.6,.4,1)}
+.s-banner.gone{animation:bannerOut .45s ease-in forwards}
+@keyframes bannerOut{to{transform:translateX(-50%) translateY(-40vh) scale(.35);opacity:0}}
+@keyframes pop{0%{transform:translateX(-50%) scale(.3);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}
+.s-flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9}
+.s-flash.go{animation:flash .6s ease-out}
+@keyframes flash{0%{opacity:.75}100%{opacity:0}}
+.s-toast{position:absolute;top:2vh;left:50%;transform:translateX(-50%);z-index:6;font-size:4em;font-weight:950;padding:.15em .8em;border-radius:1vw;box-shadow:0 1vh 4vh #000c;white-space:nowrap}
+.s-toast.correct{background:var(--green);color:#03210f}
+.s-toast.wrong{background:var(--red);color:#fff}
+.s-wait{margin:auto;text-align:center;font-size:3em;font-weight:850;color:#fff}
+.s-wait small{display:block;font-size:.5em;color:var(--muted);margin-top:1vh;font-weight:600}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+/* =====================================================================
+   Picture Buzzer: real-time picture-trivia buzzer (host / player / stream)
+   The HOST browser is the authoritative game state. Players and the stream
+   view connect to it peer-to-peer over WebRTC via PeerJS (free public broker).
+   ===================================================================== */
+const APP_VERSION = '1.0.0';
+const PEERJS_URLS = [
+  'https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js',
+  'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js',
+];
+const JSZIP_URLS = [
+  'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+  'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js',
+];
+const PEER_PREFIX = 'picbuzz-';
+const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const COLORS = ['#ff5d73', '#4da3ff', '#2ee59d', '#ffb627', '#b085f5', '#ff8a3d', '#3dd6d0', '#f06fd0', '#c6e94f', '#8fa3ff'];
+const CHUNK = 15000; // chars per image chunk (PeerJS JSON channel max message = 16300 bytes)
+const MAX_MSG = 15500; // any larger message gets split into parts
+
+/* ---------- tiny helpers ---------- */
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'text') el.textContent = v;
+    else if (k === 'value') el.value = v;
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else if (k in el && typeof v !== 'string') el[k] = v;
+    else if (v === true) el.setAttribute(k, '');
+    else el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat(Infinity)) if (kid != null && kid !== false) el.append(kid.nodeType ? kid : String(kid));
+  return el;
+}
+function randStr(n, alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789') {
+  const a = new Uint8Array(n); crypto.getRandomValues(a);
+  return Array.from(a, b => alphabet[b % alphabet.length]).join('');
+}
+const uid = (n = 10) => randStr(n);
+const newRoomCode = () => randStr(6, ROOM_ALPHABET);
+const normRoom = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+const peerIdFor = room => PEER_PREFIX + normRoom(room).toLowerCase();
+const natCmp = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const params = (() => {
+  const q = new URLSearchParams(location.search);
+  const hq = new URLSearchParams(location.hash.replace(/^#/, ''));
+  return { get: k => q.get(k) ?? hq.get(k) };
+})();
+function baseUrl() { return location.href.split('#')[0].split('?')[0]; }
+function toast(msg, ms = 2600) {
+  let t = $('#toast');
+  if (!t) { t = h('div', { id: 'toast', class: 'toast hidden' }); document.body.append(t); }
+  t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hidden'), ms);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Copied to clipboard'); return true; }
+  catch {
+    const ta = h('textarea', { style: { position: 'fixed', opacity: 0 } }); ta.value = text; document.body.append(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch {}
+    ta.remove(); toast(ok ? 'Copied to clipboard' : 'Copy failed; select the text and copy it manually'); return ok;
+  }
+}
+function loadScript(urls) {
+  return new Promise((resolve, reject) => {
+    let i = 0;
+    const next = () => {
+      if (i >= urls.length) return reject(new Error('Could not load ' + urls[0]));
+      const s = document.createElement('script'); s.src = urls[i++]; s.async = true;
+      s.onload = () => resolve(); s.onerror = () => { s.remove(); next(); };
+      document.head.append(s);
+    };
+    next();
+  });
+}
+async function ensurePeerJS() { if (!window.Peer) await loadScript(PEERJS_URLS); return window.Peer; }
+// Public STUN servers (free, no account). NOTE: PeerJS's bundled default TURN hosts
+// (eu-0/us-0.turn.peerjs.com) no longer resolve in DNS, and no free account-less TURN service
+// exists today, so TURN is opt-in: the host can enter one in Game setup and it rides along
+// in the share links (?turn=&turnuser=&turnpass=).
+const STUN_SERVERS = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+];
+function peerOptions(turn) {
+  const opts = { debug: Number(params.get('debug') || 1) };
+  const cfg = { iceServers: [...STUN_SERVERS], sdpSemantics: 'unified-plan' };
+  const t = turn && turn.url ? turn : (params.get('turn') ? { url: params.get('turn'), user: params.get('turnuser') || '', pass: params.get('turnpass') || '' } : null);
+  if (t) cfg.iceServers.push({ urls: t.url.split(/[\s,]+/).filter(Boolean), username: t.user || '', credential: t.pass || '' });
+  if (params.get('relay') === '1') cfg.iceTransportPolicy = 'relay'; // force TURN only (troubleshooting)
+  opts.config = cfg;
+  // Optional self-hosted PeerJS server: ?peerhost=example.com&peerport=443&peerpath=/myapp
+  if (params.get('peerhost')) {
+    opts.host = params.get('peerhost'); opts.port = Number(params.get('peerport') || 443);
+    opts.path = params.get('peerpath') || '/'; opts.secure = params.get('peersecure') !== '0';
+  }
+  return opts;
+}
+/* ---------- sounds (WebAudio, no files) ---------- */
+let _actx = null;
+function sfx(kind) {
+  try {
+    _actx = _actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (_actx.state === 'suspended') _actx.resume();
+    const t0 = _actx.currentTime;
+    const tone = (f, at, dur, type = 'square', vol = 0.12) => {
+      const o = _actx.createOscillator(), g = _actx.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t0 + at);
+      g.gain.setValueAtTime(vol, t0 + at); g.gain.exponentialRampToValueAtTime(0.0008, t0 + at + dur);
+      o.connect(g).connect(_actx.destination); o.start(t0 + at); o.stop(t0 + at + dur + 0.03);
+    };
+    if (kind === 'buzz') { tone(740, 0, 0.11); tone(1110, 0.11, 0.3); }
+    else if (kind === 'correct') { tone(660, 0, 0.12, 'triangle', 0.25); tone(880, 0.12, 0.12, 'triangle', 0.25); tone(1320, 0.24, 0.35, 'triangle', 0.25); }
+    else if (kind === 'wrong') { tone(170, 0, 0.5, 'sawtooth', 0.16); tone(120, 0.05, 0.5, 'square', 0.08); }
+    else if (kind === 'reveal') { tone(520, 0, 0.1, 'sine', 0.2); tone(780, 0.1, 0.25, 'sine', 0.2); }
+  } catch {}
+}
+/* ---------- IndexedDB (host persistence) ---------- */
+const DB = {
+  _p: null,
+  open() {
+    if (!this._p) this._p = new Promise((res, rej) => {
+      const r = indexedDB.open('picture-buzzer', 1);
+      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('kv'); d.createObjectStore('images'); };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return this._p;
+  },
+  async tx(store, mode, fn) {
+    const d = await this.open();
+    return new Promise((res, rej) => {
+      const t = d.transaction(store, mode), s = t.objectStore(store); let out;
+      const r = fn(s); if (r) r.onsuccess = () => { out = r.result; };
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  },
+  get(store, k) { return this.tx(store, 'readonly', s => s.get(k)); },
+  put(store, k, v) { return this.tx(store, 'readwrite', s => s.put(v, k)); },
+  del(store, k) { return this.tx(store, 'readwrite', s => s.delete(k)); },
+  all(store) { return this.tx(store, 'readonly', s => s.getAll()); },
+  clear(store) { return this.tx(store, 'readwrite', s => s.clear()); },
+};
+/* ---------- image processing (resize + JPEG compress in-browser) ---------- */
+const IMG_EXT = /\.(jpe?g|png|gif|webp|bmp|svg|avif|jfif)$/i;
+const isImageFile = f => (f.type && f.type.startsWith('image/')) || IMG_EXT.test(f.name || '');
+function loadImg(src, cors) {
+  return new Promise((res, rej) => {
+    const im = new Image(); if (cors) im.crossOrigin = 'anonymous';
+    im.onload = () => res(im); im.onerror = () => rej(new Error('Image failed to load: ' + String(src).slice(0, 80)));
+    im.src = src;
+  });
+}
+function drawCompress(im, maxPx, quality, isSvg) {
+  let w = im.naturalWidth || im.width || 1000, hh = im.naturalHeight || im.height || 750;
+  let sc = maxPx / Math.max(w, hh);
+  if (!isSvg) sc = Math.min(1, sc);
+  const cw = Math.max(1, Math.round(w * sc)), ch = Math.max(1, Math.round(hh * sc));
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cw, ch); // transparent logos -> white
+  ctx.imageSmoothingQuality = 'high'; ctx.drawImage(im, 0, 0, cw, ch);
+  return { data: c.toDataURL('image/jpeg', quality), w: cw, h: ch };
+}
+async function compressBlob(blob, maxPx, quality) {
+  const url = URL.createObjectURL(blob);
+  try { const im = await loadImg(url); return drawCompress(im, maxPx, quality, /svg/.test(blob.type) || /\.svg$/i.test(blob.name || '')); }
+  finally { URL.revokeObjectURL(url); }
+}
+async function processSrc(src, maxPx, quality) {
+  // src: data: URL or http(s) URL. Returns {data,w,h} or {url,w,h} (linked, not embedded)
+  if (/^data:image\/jpeg/.test(src) && src.length < 900000) {
+    const im = await loadImg(src);
+    if (Math.max(im.naturalWidth, im.naturalHeight) <= maxPx) return { data: src, w: im.naturalWidth, h: im.naturalHeight };
+    return drawCompress(im, maxPx, quality);
+  }
+  if (/^data:/.test(src)) { const im = await loadImg(src); return drawCompress(im, maxPx, quality, /svg/.test(src.slice(0, 30))); }
+  try {
+    const r = await fetch(src, { mode: 'cors' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const b = await r.blob(); if (!/^image\//.test(b.type)) throw new Error('not an image');
+    return await compressBlob(b, maxPx, quality);
+  } catch {}
+  try { const im = await loadImg(src, true); return drawCompress(im, maxPx, quality); } catch {}
+  const im = await loadImg(src); // no CORS: can only link it; clients load the URL directly
+  return { url: src, w: im.naturalWidth, h: im.naturalHeight };
+}
+/* ---------- file helpers ---------- */
+async function filesFromDataTransfer(dt) {
+  const items = Array.from(dt.items || []);
+  const entries = items.map(it => (it.webkitGetAsEntry ? it.webkitGetAsEntry() : null)).filter(Boolean);
+  if (!entries.length) return Array.from(dt.files || []);
+  const out = [];
+  async function walk(entry, path) {
+    if (entry.isFile) {
+      const f = await new Promise((res, rej) => entry.file(res, rej));
+      try { Object.defineProperty(f, 'relPath', { value: path + f.name }); } catch {}
+      out.push(f);
+    } else if (entry.isDirectory) {
+      const rd = entry.createReader(); let batch;
+      do { batch = await new Promise((res, rej) => rd.readEntries(res, rej)); for (const e of batch) await walk(e, path + entry.name + '/'); } while (batch.length);
+    }
+  }
+  for (const e of entries) await walk(e, '');
+  return out;
+}
+async function unzipToFiles(file) {
+  if (!window.JSZip) await loadScript(JSZIP_URLS);
+  const zip = await window.JSZip.loadAsync(file);
+  const out = [];
+  for (const [path, entry] of Object.entries(zip.files)) {
+    if (entry.dir || /(^|\/)(__MACOSX|\.)/.test(path)) continue;
+    const name = path.split('/').pop();
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    const type = { jpg: 'image/jpeg', jpeg: 'image/jpeg', jfif: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif', json: 'application/json' }[ext] || 'text/plain';
+    const f = new File([await entry.async('blob')], name, { type });
+    try { Object.defineProperty(f, 'relPath', { value: path }); } catch {}
+    out.push(f);
+  }
+  return out;
+}
+/* Group image files into rounds by the first number in the filename.
+   NN_question.jpg / NN_answer.jpg; two question images (NN_a.jpg + NN_b.jpg, NN_question_1/2...) = side-by-side. */
+const ANSWER_RE = /(^|[^a-z])(answer|answers|ans|reveal|solution|sol|key)([^a-z]|$)/i;
+function groupImageFiles(files) {
+  const groups = new Map(); const loose = [];
+  for (const f of files) {
+    const base = f.name.replace(/\.[^.]+$/, '');
+    const m = base.match(/(\d{1,4})/);
+    const role = ANSWER_RE.test(base) ? 'a' : 'q';
+    if (!m) { loose.push({ file: f, role }); continue; }
+    const n = parseInt(m[1], 10);
+    if (!groups.has(n)) groups.set(n, { num: n, q: [], a: [] });
+    groups.get(n)[role].push(f);
+  }
+  const out = [];
+  for (const g of [...groups.values()].sort((a, b) => a.num - b.num)) {
+    g.q.sort((a, b) => natCmp(a.name, b.name)); g.a.sort((a, b) => natCmp(a.name, b.name));
+    if (!g.q.length && g.a.length) { g.q.push(g.a.shift()); }
+    out.push({ num: g.num, q: g.q.slice(0, 2), a: g.a[0] || null, extra: g.q.slice(2).concat(g.a.slice(1)) });
+  }
+  loose.sort((a, b) => natCmp(a.file.name, b.file.name));
+  for (const l of loose) out.push({ num: null, q: [l.file], a: null, extra: [] });
+  return out;
+}
+/* ---------- answer-sheet parsing (answers.md / .txt / .json) ---------- */
+function stripMd(s) {
+  return String(s || '')
+    .replace(/\\([*_`|#])/g, (m, c) => '\u0000' + c.charCodeAt(0) + '\u0001') // protect escaped chars
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+    .replace(/\*\*|__/g, '').replace(/(^|[\s("“])[*_]([^*_]+)[*_](?=[\s).,:;!?"”]|$)/g, '$1$2')
+    .replace(/`/g, '').replace(/\u0000(\d+)\u0001/g, (m, c) => String.fromCharCode(+c)).trim();
+}
+function dropSources(s) { return s.replace(/;\s*source:\s*[^\s)]+\)/gi, ')').replace(/\(?\s*source:\s*[^\s)]+\)?(\s*\([^)]*\))?\.?/gi, '').replace(/\s{2,}/g, ' ').trim(); }
+function parseAnswersText(txt) {
+  const out = {}; let cur = null;
+  const add = (n, k, v) => { v = dropSources(stripMd(v)); if (!v) return; out[n] = out[n] || {}; out[n][k] = out[n][k] ? out[n][k] + '\n' + v : v; };
+  for (const raw of String(txt).split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || /^#/.test(line) || /^[-*_=]{3,}$/.test(line)) { cur = null; continue; }
+    if (line.startsWith('|')) {
+      const cells = line.replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map(c => c.trim());
+      const n = stripMd(cells[0]).match(/^(\d{1,3})$/);
+      if (n) {
+        const num = +n[1];
+        if (cells.length === 2) add(num, 'note', cells[1]);
+        else {
+          const qm = stripMd(cells[1]).match(/^["“](.+?)["”]\s*(?:\((.+)\))?$/); // "Prompt?" (description)
+          if (qm) { add(num, 'prompt', qm[1]); if (qm[2]) add(num, 'title', qm[2].charAt(0).toUpperCase() + qm[2].slice(1)); }
+          else add(num, 'prompt', cells[1]);
+          add(num, 'note', cells.slice(2).filter(Boolean).join(' — '));
+        }
+      }
+      cur = null; continue;
+    }
+    const m = line.match(/^(\*\*|__)?\s*(?:round|question|q|#)?\s*(\d{1,3})\s*[:.)\-–]\s*(.*)$/i);
+    if (m) {
+      const num = +m[2]; let rest = m[3];
+      if (m[1]) { // **06: Title** (10 items). More text...
+        const end = rest.indexOf(m[1]);
+        let title = end >= 0 ? rest.slice(0, end) : rest; let after = end >= 0 ? rest.slice(end + 2) : '';
+        const pm = after.match(/^\s*(\([^)]*\))\s*\.?\s*(.*)$/);
+        if (pm) { title += ' ' + pm[1]; after = pm[2]; }
+        add(num, 'title', title); if (after) add(num, 'note', after);
+      } else add(num, 'note', rest);
+      cur = num; continue;
+    }
+    if (cur != null) { if (/^source:/i.test(line)) continue; add(cur, 'note', line); }
+  }
+  return out;
+}
+function parseAnswersJson(obj) {
+  const out = {};
+  const norm = v => (typeof v === 'string' ? { note: v } : (v && typeof v === 'object' ? { title: v.title, prompt: v.prompt, note: v.note ?? v.answer, points: v.points } : null));
+  if (Array.isArray(obj)) obj.forEach((v, i) => { const r = norm(v); if (r) out[(v && v.round) || i + 1] = r; });
+  else if (obj && typeof obj === 'object') for (const [k, v] of Object.entries(obj)) { const n = parseInt(k, 10); const r = norm(v); if (!isNaN(n) && r) out[n] = r; }
+  return out;
+}
+const isGameJson = o => o && typeof o === 'object' && Array.isArray(o.rounds) && (o.format === 'picture-buzzer-game' || o.rounds.some(r => r && (r.question || r.q)));
+
+/* ---------- networking: client side (player + stream) ---------- */
+class ClientNet {
+  constructor(room, role, handlers) {
+    this.room = normRoom(room); this.role = role; this.on = handlers;
+    this.peer = null; this.conn = null; this.lastRx = 0; this.retryAt = 0; this.connStart = 0; this.peerStart = 0;
+    const key = 'picbuzz-client-' + this.room;
+    this.clientId = localStorage.getItem(key) || uid(12);
+    try { localStorage.setItem(key, this.clientId); } catch {}
+  }
+  status(s, detail) { this._st = s; this.on.status && this.on.status(s, detail); }
+  async start() {
+    this.status('loading');
+    try { await ensurePeerJS(); } catch (e) { this.status('error', 'Could not load PeerJS from the CDN. Check your internet connection.'); return; }
+    this.makePeer();
+    setInterval(() => this.tick(), 2000);
+    addEventListener('online', () => this.tick());
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) this.tick(); });
+    addEventListener('pagehide', () => { try { this.conn && this.conn.close(); this.peer && this.peer.destroy(); } catch {} });
+  }
+  makePeer() {
+    try { this.peer && this.peer.destroy(); } catch {}
+    this.conn = null; this.peerStart = Date.now();
+    const p = this.peer = new Peer(peerOptions());
+    this.status('connecting');
+    p.on('open', () => { if (p === this.peer) this.connect(); });
+    p.on('disconnected', () => {
+      if (p !== this.peer || p.destroyed) return;
+      setTimeout(() => { if (p === this.peer && !p.destroyed && p.disconnected) { try { p.reconnect(); } catch { this.makePeer(); } } }, 1500);
+    });
+    p.on('error', err => {
+      if (p !== this.peer) return;
+      if (err.type === 'peer-unavailable') { this.dropConn(); this.retryAt = Date.now() + 2500; this.status('nohost'); }
+      else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type)) { this.status('broker'); }
+      else if (err.type === 'browser-incompatible') this.status('error', 'This browser does not support WebRTC.');
+      else console.warn('peer error', err.type, err);
+    });
+  }
+  connect() {
+    if (!this.peer || this.peer.destroyed || this.peer.disconnected) return;
+    this.dropConn();
+    const c = this.conn = this.peer.connect(peerIdFor(this.room), { reliable: true, serialization: 'json', metadata: { role: this.role } });
+    this.connStart = Date.now();
+    if (this._st !== 'nohost') this.status('connecting');
+    c.on('open', () => {
+      if (c !== this.conn) return;
+      this.lastRx = Date.now();
+      this.send({ t: 'hi', role: this.role, clientId: this.clientId, v: APP_VERSION });
+      this.status('connected');
+      this.on.open && this.on.open();
+    });
+    const parts = {};
+    c.on('data', d => {
+      if (c !== this.conn) return; this.lastRx = Date.now();
+      if (d && d.t === 'part') { // reassemble an oversized message
+        const p = parts[d.id] = parts[d.id] || []; p[d.i] = d.d;
+        if (p.filter(x => x != null).length === d.n) { delete parts[d.id]; try { d = JSON.parse(p.join('')); } catch { return; } } else return;
+      }
+      if (d && d.t !== 'pong') this.on.msg(d);
+    });
+    const lost = () => { if (c !== this.conn) return; this.conn = null; this.retryAt = Date.now() + 800; this.status('reconnecting'); this.on.lost && this.on.lost(); };
+    c.on('close', lost);
+    c.on('error', e => { console.warn('connection error', e && e.type); if (!c.open) lost(); });
+  }
+  dropConn() { const c = this.conn; this.conn = null; if (c) { try { c.close(); } catch {} } }
+  send(m) { if (this.conn && this.conn.open) { try { sendSplit(this.conn, m); return true; } catch {} } return false; }
+  tick() {
+    const now = Date.now(), p = this.peer;
+    if (!p || p.destroyed) { this.makePeer(); return; }
+    if (p.disconnected || !p.open) { if (now - this.peerStart > 20000) this.makePeer(); return; }
+    this.peerStart = now;
+    if (!this.conn) { if (now >= this.retryAt) this.connect(); return; }
+    if (!this.conn.open) { if (now - this.connStart > 10000) { this.dropConn(); this.retryAt = now; this.status(this._st === 'nohost' ? 'nohost' : 'reconnecting'); } return; }
+    this.send({ t: 'ping' });
+    if (now - this.lastRx > 15000) { this.dropConn(); this.retryAt = now; this.status('reconnecting'); this.on.lost && this.on.lost(); }
+  }
+}
+/* send any message, splitting it if it exceeds the PeerJS JSON channel limit */
+function sendSplit(conn, msg) {
+  const str = JSON.stringify(msg);
+  if (str.length <= MAX_MSG && new Blob([str]).size <= MAX_MSG) { conn.send(msg); return; }
+  const id = uid(6), step = 4000; // 4000 chars <= 16KB even if every char is 4-byte UTF-8
+  const n = Math.ceil(str.length / step);
+  for (let i = 0; i < n; i++) conn.send({ t: 'part', id, i, n, d: str.slice(i * step, (i + 1) * step) });
+}
+/* image cache + chunk reassembly shared by player & stream */
+class ImageCache {
+  constructor(net, onReady) { this.net = net; this.onReady = onReady; this.ready = new Map(); this.pending = new Map(); }
+  has(id) { return this.ready.has(id); }
+  src(id) { return this.ready.get(id); }
+  want(ids) {
+    for (const id of ids) {
+      if (!id || this.ready.has(id)) continue;
+      const p = this.pending.get(id);
+      if (p && Date.now() - p.at < 15000) continue;
+      this.pending.set(id, { at: Date.now(), parts: [], got: 0, n: 0 });
+      this.net.send({ t: 'getImg', id });
+    }
+  }
+  reset() { this.pending.clear(); }
+  handle(m) {
+    if (m.t === 'imgUrl') { this.ready.set(m.id, m.url); this.pending.delete(m.id); this.onReady(m.id); return true; }
+    if (m.t === 'imgChunk') {
+      let p = this.pending.get(m.id); if (!p) { p = { at: Date.now(), parts: [], got: 0, n: 0 }; this.pending.set(m.id, p); }
+      p.at = Date.now();
+      if (p.parts[m.i] == null) { p.parts[m.i] = m.d; p.got++; } p.n = m.n;
+      if (p.got === p.n) { this.ready.set(m.id, p.parts.join('')); this.pending.delete(m.id); this.onReady(m.id); }
+      return true;
+    }
+    if (m.t === 'imgDenied') { this.pending.delete(m.id); return true; }
+    return false;
+  }
+}
+function renderImgPair(container, ids, srcOf, opts = {}) {
+  // ids: array of image ids (1 or 2). Re-renders only when something changed.
+  const key = ids.join('|') + '#' + ids.map(id => (srcOf(id) ? 1 : 0)).join('') + (opts.labels ? 'L' : '');
+  if (container._key === key) return; container._key = key;
+  container.innerHTML = '';
+  const pair = h('div', { class: 'imgpair' });
+  if (!ids.length) pair.append(h('div', { class: 'loading' }, opts.empty || ''));
+  ids.forEach((id, i) => {
+    const src = srcOf(id);
+    const box = h('div', { class: 'imgbox' });
+    if (src) box.append(h('img', { src, alt: 'round image', draggable: 'false' }));
+    else box.append(h('div', { class: 'loading' }, h('div', { class: 'spinner' }), 'Loading image…'));
+    if (ids.length > 1 && opts.labels !== false) box.append(h('div', { class: 'tag' }, String.fromCharCode(65 + i)));
+    pair.append(box);
+  });
+  container.append(pair);
+}
+const STATUS_TEXT = {
+  loading: 'Loading…', connecting: 'Connecting…', connected: 'Connected', reconnecting: 'Reconnecting…',
+  nohost: 'Host not found yet. Is the host page open? Retrying…', broker: 'Can’t reach the PeerJS broker. Retrying…', error: 'Error',
+};
+
+/* =========================== HOST =========================== */
+const H = { game: null, session: null, images: new Map(), conns: new Set(), net: null, tab: 'play', dbFail: false };
+const defaultSettings = () => ({ autoOpen: true, autoRevealOnCorrect: false, allowSelfJoin: true, sound: true, maxPx: 1600, quality: 0.85, streamBg: 'dark', streamSound: true, turn: { url: '', user: '', pass: '' } });
+const defaultGame = () => ({ title: 'Picture Trivia', defaultPoints: 1, wrongPenalty: 0, rounds: [] });
+const defaultSession = () => ({ room: newRoomCode(), hostName: 'Host', players: [], roundIndex: 0, buzzOpen: false, winner: null, winnerAt: 0, queue: [], lockedOut: [], revealed: false, last: null, buzzSeq: 0, bindings: {}, ver: 0, settings: defaultSettings() });
+const newRound = () => ({ id: 'r' + uid(8), title: '', prompt: '', note: '', points: null, q: [], a: null });
+const curRound = () => H.game.rounds[H.session.roundIndex] || null;
+const roundPoints = r => (r && r.points != null && r.points !== '' && isFinite(r.points)) ? Number(r.points) : (Number(H.game.defaultPoints) || 1);
+const playerById = id => H.session.players.find(p => p.id === id) || null;
+const pname = id => (playerById(id) || { name: '?' }).name;
+const imgSrc = id => { const r = id && H.images.get(id); return r ? (r.data || r.url) : null; };
+const thumbSrc = id => { const r = id && H.images.get(id); return r ? (r.thumb || r.data || r.url) : null; };
+const isConnected = pid => [...H.conns].some(m => m.pid === pid && m.conn.open);
+
+async function hostLoad() {
+  let g = null, s = null;
+  try { g = JSON.parse(localStorage.getItem('picbuzz-host-game') || 'null'); s = JSON.parse(localStorage.getItem('picbuzz-host-session') || 'null'); } catch {}
+  H.game = Object.assign(defaultGame(), g || {});
+  H.session = Object.assign(defaultSession(), s || {});
+  H.session.settings = Object.assign(defaultSettings(), (s && s.settings) || {});
+  H.session.winnerAt = 0;
+  const pr = normRoom(params.get('room')); if (pr.length >= 4) H.session.room = pr;
+  try { for (const r of await DB.all('images')) if (r && r.id) H.images.set(r.id, r); } catch (e) { H.dbFail = true; console.warn('IndexedDB unavailable', e); }
+  H.session.roundIndex = clamp(H.session.roundIndex, 0, Math.max(0, H.game.rounds.length - 1));
+  saveNow();
+}
+function saveNow() {
+  try { localStorage.setItem('picbuzz-host-game', JSON.stringify(H.game)); localStorage.setItem('picbuzz-host-session', JSON.stringify(H.session)); }
+  catch (e) { console.warn('save failed', e); }
+}
+async function makeThumb(src) {
+  try { const im = await loadImg(src); return drawCompress(im, 260, 0.7).data; } catch { return null; }
+}
+async function storeImage(rec) {
+  const id = 'i' + uid(10); rec.id = id;
+  rec.thumb = await makeThumb(rec.data || rec.url);
+  H.images.set(id, rec);
+  try { await DB.put('images', id, rec); } catch (e) { H.dbFail = true; }
+  return id;
+}
+function gcImages() {
+  const used = new Set();
+  for (const r of H.game.rounds) { r.q.forEach(i => used.add(i)); if (r.a) used.add(r.a); }
+  for (const id of [...H.images.keys()]) if (!used.has(id)) { H.images.delete(id); DB.del('images', id).catch(() => {}); }
+}
+/* ---------- state broadcast ---------- */
+function publicState(m) {
+  const s = H.session, g = H.game, r = curRound(), rev = s.revealed, nx = g.rounds[s.roundIndex + 1];
+  return {
+    t: 'state', v: s.ver, room: s.room, hostName: s.hostName, title: g.title,
+    roundIndex: s.roundIndex, roundCount: g.rounds.length,
+    round: r ? { id: r.id, title: r.title || '', prompt: r.prompt || '', q: r.q.slice(), a: rev ? (r.a || null) : null, note: rev ? (r.note || '') : '', points: roundPoints(r) } : null,
+    revealed: rev, buzzOpen: s.buzzOpen, winner: s.winner, queue: s.queue, lockedOut: s.lockedOut, last: s.last, buzzSeq: s.buzzSeq,
+    players: s.players.map(p => ({ id: p.id, name: p.name, score: p.score, color: p.color, connected: isConnected(p.id) })),
+    allowSelfJoin: s.settings.allowSelfJoin,
+    you: m && m.role === 'player' ? (m.pid || null) : null,
+    prefetch: nx ? nx.q.slice() : [],
+  };
+}
+function hsend(m, msg) { try { if (m.conn.open) sendSplit(m.conn, msg); } catch (e) { console.warn('send failed', e); } }
+function broadcastState() { for (const m of H.conns) if (m.role) hsend(m, publicState(m)); }
+let _bcT = 0;
+function broadcastSoon() { clearTimeout(_bcT); _bcT = setTimeout(broadcastState, 250); }
+function commit(opts = {}) {
+  H.session.ver++; saveNow(); broadcastState(); renderHostAll();
+  if (opts.setup) renderSetup();
+}
+function allowedImages() {
+  const s = H.session, r = curRound(), set = new Set();
+  if (r) { r.q.forEach(i => set.add(i)); if (s.revealed && r.a) set.add(r.a); }
+  const nx = H.game.rounds[s.roundIndex + 1]; if (nx) nx.q.forEach(i => set.add(i));
+  return set;
+}
+function serveImage(m, id) {
+  const rec = H.images.get(id);
+  if (!rec || !allowedImages().has(id)) { hsend(m, { t: 'imgDenied', id }); return; }
+  if (!rec.data && rec.url) { hsend(m, { t: 'imgUrl', id, url: rec.url }); return; }
+  const d = rec.data, n = Math.ceil(d.length / CHUNK);
+  for (let i = 0; i < n; i++) hsend(m, { t: 'imgChunk', id, i, n, d: d.slice(i * CHUNK, (i + 1) * CHUNK) });
+}
+/* ---------- networking (host) ---------- */
+const NET_TEXT = { loading: 'Loading…', starting: 'Starting room…', online: 'Online', reconnecting: 'Reconnecting to broker…', taken: 'Room code busy, retrying…', broker: 'Broker unreachable, retrying…', error: 'Error' };
+class HostNet {
+  constructor(room) { this.room = room; this.peer = null; this.retryAt = 0; this.fails = 0; this.lastRe = 0; this.state = 'loading'; }
+  setState(st, detail) { this.state = st; this.detail = detail || ''; renderTop(); }
+  async start() {
+    this.setState('loading');
+    try { await ensurePeerJS(); } catch { this.setState('error', 'Could not load PeerJS from the CDN (no internet?)'); return; }
+    this.make();
+    setInterval(() => this.tick(), 3000);
+    addEventListener('pagehide', () => { try { this.peer && this.peer.destroy(); } catch {} });
+  }
+  make() {
+    if (this.peer) { this.peer._dying = true; try { this.peer.destroy(); } catch {} }
+    const p = this.peer = new Peer(peerIdFor(this.room), peerOptions(H.session.settings.turn));
+    if (this.state !== 'taken') this.setState('starting');
+    p.on('open', () => { if (p !== this.peer) return; this.fails = 0; this.setState('online'); });
+    p.on('connection', c => { if (p === this.peer) acceptConn(c); });
+    p.on('disconnected', () => {
+      if (p !== this.peer || p.destroyed || p._dying) return;
+      this.setState('reconnecting');
+      setTimeout(() => this.tryReconnect(p), 1500);
+    });
+    p.on('error', err => {
+      if (p !== this.peer) return;
+      if (err.type === 'unavailable-id') { this.fails++; p._dying = true; try { p.destroy(); } catch {} this.setState('taken'); this.retryAt = Date.now() + 2500; }
+      else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type)) this.setState('broker');
+      else if (err.type === 'invalid-id') this.setState('error', 'Invalid room code');
+      else console.warn('host peer error', err.type, err);
+    });
+  }
+  tryReconnect(p) {
+    if (p !== this.peer || p.destroyed || !p.disconnected || Date.now() - this.lastRe < 4000) return;
+    this.lastRe = Date.now(); try { p.reconnect(); } catch (e) { console.warn(e); }
+  }
+  tick() {
+    const p = this.peer, now = Date.now();
+    if ((!p || p.destroyed) && now >= this.retryAt) this.make();
+    else if (p && p.disconnected && !p.destroyed) this.tryReconnect(p);
+    for (const m of [...H.conns]) if (now - m.lastRx > 20000 || !m.conn.open) dropConn(m);
+  }
+  changeRoom(room) {
+    this.room = room;
+    for (const m of [...H.conns]) { try { m.conn.close(); } catch {} }
+    H.conns.clear(); this.retryAt = 0; this.fails = 0; this.make();
+  }
+}
+function acceptConn(c) {
+  const m = { conn: c, role: null, clientId: null, pid: null, lastRx: Date.now() };
+  c.on('open', () => { m.lastRx = Date.now(); H.conns.add(m); });
+  c.on('data', d => { m.lastRx = Date.now(); try { onClientMsg(m, d); } catch (e) { console.error(e); } });
+  c.on('close', () => dropConn(m)); c.on('error', e => { console.warn('client connection error', e && e.type); if (!c.open) dropConn(m); });
+}
+function dropConn(m) {
+  if (!H.conns.has(m)) return;
+  H.conns.delete(m); try { m.conn.close(); } catch {}
+  renderHostAll(); broadcastState();
+}
+function onClientMsg(m, d) {
+  if (!d || typeof d !== 'object') return;
+  const s = H.session;
+  if (!H.conns.has(m)) H.conns.add(m);
+  switch (d.t) {
+    case 'ping': hsend(m, { t: 'pong' }); return;
+    case 'hi': {
+      m.role = d.role === 'stream' ? 'stream' : 'player';
+      m.clientId = String(d.clientId || '').slice(0, 40) || uid();
+      if (m.role === 'player') { const pid = s.bindings[m.clientId]; m.pid = pid && playerById(pid) ? pid : null; }
+      renderHostAll(); broadcastState(); return;
+    }
+    case 'join': {
+      if (m.role !== 'player') return;
+      let p = d.pid ? playerById(d.pid) : null;
+      if (!p && d.name) {
+        const name = String(d.name).replace(/\s+/g, ' ').trim().slice(0, 24); if (!name) return;
+        p = s.players.find(x => x.name.toLowerCase() === name.toLowerCase());
+        if (!p) {
+          if (!s.settings.allowSelfJoin) { hsend(m, { t: 'err', msg: 'The host needs to add you first. Pick your name from the list.' }); return; }
+          p = addPlayer(name, true);
+        }
+      }
+      if (!p) return;
+      for (const [cid, pid] of Object.entries(s.bindings)) if (pid === p.id && cid !== m.clientId) delete s.bindings[cid];
+      for (const o of H.conns) if (o !== m && o.pid === p.id) o.pid = null;
+      s.bindings[m.clientId] = p.id; m.pid = p.id;
+      commit(); return;
+    }
+    case 'leave': if (m.clientId) delete s.bindings[m.clientId]; m.pid = null; commit(); return;
+    case 'buzz': if (!(m.role === 'player' && m.pid && hostBuzz(m.pid, d.rid))) hsend(m, publicState(m)); return;
+    case 'getImg': serveImage(m, String(d.id || '')); return;
+  }
+}
+/* ---------- game actions ---------- */
+function addPlayer(name, silent) {
+  const s = H.session;
+  const used = new Set(s.players.map(p => p.color));
+  const color = COLORS.find(c => !used.has(c)) || COLORS[s.players.length % COLORS.length];
+  const p = { id: 'p' + uid(6), name: String(name).trim().slice(0, 24), score: 0, color };
+  s.players.push(p); if (!silent) commit(); return p;
+}
+function removePlayer(pid) {
+  const s = H.session, p = playerById(pid); if (!p || !confirm(`Remove ${p.name}?`)) return;
+  s.players = s.players.filter(x => x.id !== pid);
+  for (const [cid, id] of Object.entries(s.bindings)) if (id === pid) delete s.bindings[cid];
+  for (const m of H.conns) if (m.pid === pid) m.pid = null;
+  s.lockedOut = s.lockedOut.filter(x => x !== pid); s.queue = s.queue.filter(x => x.id !== pid);
+  if (s.winner === pid) s.winner = null;
+  commit();
+}
+function renamePlayer(pid) {
+  const p = playerById(pid); if (!p) return;
+  const n = prompt('Rename player', p.name); if (n && n.trim()) { p.name = n.trim().slice(0, 24); commit(); }
+}
+function adjustScore(pid, delta) { const p = playerById(pid); if (p) { p.score = Math.round((p.score + delta) * 100) / 100; commit(); } }
+function hostBuzz(pid, rid) {
+  const s = H.session, r = curRound(), now = performance.now();
+  if (!r || (rid && rid !== r.id) || !s.buzzOpen || s.lockedOut.includes(pid) || s.queue.some(q => q.id === pid)) return false;
+  if (!s.winner) { s.winner = pid; s.winnerAt = now; s.queue = [{ id: pid, dt: 0 }]; s.buzzSeq++; if (s.settings.sound) sfx('buzz'); }
+  else s.queue.push({ id: pid, dt: Math.round(now - (s.winnerAt || now)) });
+  commit(); return true;
+}
+function markCorrect() {
+  const s = H.session; if (!s.winner) return;
+  const v = Number($('#pts').value); const pts = isFinite(v) && $('#pts').value !== '' ? v : roundPoints(curRound());
+  const p = playerById(s.winner); if (p) p.score = Math.round((p.score + pts) * 100) / 100;
+  s.last = { type: 'correct', pid: s.winner, pts, at: Date.now() };
+  s.winner = null; s.queue = []; s.buzzOpen = false;
+  if (s.settings.autoRevealOnCorrect) s.revealed = true;
+  if (s.settings.sound) sfx('correct');
+  commit();
+}
+function markWrong() {
+  const s = H.session; if (!s.winner) return;
+  const pen = Number(H.game.wrongPenalty) || 0, p = playerById(s.winner);
+  if (p && pen) p.score = Math.round((p.score - pen) * 100) / 100;
+  s.lockedOut.push(s.winner);
+  s.last = { type: 'wrong', pid: s.winner, pts: -pen, at: Date.now() };
+  s.winner = null; s.queue = [];
+  s.buzzOpen = s.players.some(x => !s.lockedOut.includes(x.id));
+  if (s.settings.sound) sfx('wrong');
+  commit();
+}
+function openBuzz() { const s = H.session; s.winner = null; s.queue = []; s.buzzOpen = true; commit(); }
+function lockBuzz() { H.session.buzzOpen = false; commit(); }
+function resetBuzz() { const s = H.session; s.winner = null; s.queue = []; s.lockedOut = []; s.last = null; s.buzzOpen = true; commit(); }
+function toggleReveal() { const s = H.session; s.revealed = !s.revealed; if (s.revealed) { s.buzzOpen = false; if (s.settings.sound) sfx('reveal'); } commit(); }
+function resetRoundState(i) {
+  const s = H.session;
+  s.roundIndex = clamp(i, 0, Math.max(0, H.game.rounds.length - 1));
+  s.winner = null; s.queue = []; s.lockedOut = []; s.revealed = false; s.last = null;
+  s.buzzOpen = !!(s.settings.autoOpen && H.game.rounds.length);
+}
+function gotoRound(i) { if (!H.game.rounds.length) return; resetRoundState(i); commit(); }
+function resetGame() {
+  if (!confirm('Reset the game? Scores go to 0 and you go back to round 1. Players and rounds are kept.')) return;
+  H.session.players.forEach(p => { p.score = 0; }); resetRoundState(0); commit();
+}
+/* ---------- importing ---------- */
+function progress(msg, frac) {
+  $('#importProg').classList.remove('hidden'); $('#importMsg').textContent = msg;
+  $('#importBar').style.width = Math.round(clamp(frac || 0, 0, 1) * 100) + '%';
+}
+function progressDone() { setTimeout(() => $('#importProg').classList.add('hidden'), 600); }
+function applyAnswers(rounds, answers) {
+  let n = 0;
+  rounds.forEach((r, i) => {
+    const a = answers[r.srcNum != null ? r.srcNum : i + 1]; if (!a) return; n++;
+    if (a.title) r.title = a.title; if (a.prompt) r.prompt = a.prompt; if (a.note) r.note = a.note;
+    if (a.points != null && isFinite(a.points)) r.points = Number(a.points);
+  });
+  return n;
+}
+function prettyTitle(s) { s = String(s).replace(/[-_]+/g, ' ').trim(); return s.charAt(0).toUpperCase() + s.slice(1); }
+async function importFiles(fileList) {
+  let files = Array.from(fileList || []).filter(f => !/^\./.test(f.name) && !/__MACOSX/.test(f.relPath || f.webkitRelativePath || ''));
+  if (!files.length) return;
+  const expanded = [];
+  for (const f of files) {
+    if (/\.zip$/i.test(f.name)) { progress('Unzipping ' + f.name + '…', 0.02); try { expanded.push(...await unzipToFiles(f)); } catch (e) { toast('Could not read zip: ' + e.message); } }
+    else expanded.push(f);
+  }
+  files = expanded;
+  const imgs = files.filter(isImageFile);
+  const jsons = files.filter(f => /\.json$/i.test(f.name));
+  const texts = files.filter(f => /\.(md|markdown|txt)$/i.test(f.name))
+    .sort((a, b) => (/answer|key|solution/i.test(b.name) ? 1 : 0) - (/answer|key|solution/i.test(a.name) ? 1 : 0));
+  const answers = {};
+  for (const j of jsons) {
+    let obj; try { progress('Reading ' + j.name + '…', 0.05); obj = JSON.parse(await j.text()); } catch { toast('Not valid JSON: ' + j.name); continue; }
+    if (isGameJson(obj)) { if (!imgs.length) { await importGameObject(obj); return; } }
+    else for (const [k, v] of Object.entries(parseAnswersJson(obj))) if (!answers[k]) answers[k] = v;
+  }
+  for (const t of texts) for (const [k, v] of Object.entries(parseAnswersText(await t.text()))) if (!answers[k]) answers[k] = v;
+  if (!imgs.length) {
+    if (Object.keys(answers).length && H.game.rounds.length) { const n = applyAnswers(H.game.rounds, answers); commit({ setup: true }); toast(`Applied answer notes to ${n} rounds`); }
+    else toast('No images found in what you dropped.');
+    $('#importProg').classList.add('hidden'); return;
+  }
+  const groups = groupImageFiles(imgs);
+  let replace = true;
+  if (H.game.rounds.length) replace = confirm(`Replace the current ${H.game.rounds.length} rounds with ${groups.length} new rounds?\n\nOK = replace   Cancel = add to the end`);
+  const total = groups.reduce((a, g) => a + g.q.length + (g.a ? 1 : 0), 0); let done = 0;
+  const { maxPx, quality } = H.session.settings; const out = []; let failed = 0;
+  for (const g of groups) {
+    const r = newRound(); r.srcNum = g.num;
+    for (const f of g.q) { try { r.q.push(await storeImage(await compressBlob(f, maxPx, quality))); } catch (e) { failed++; console.warn(e); } progress(`Processing images ${++done}/${total}…`, done / total); }
+    if (g.a) { try { r.a = await storeImage(await compressBlob(g.a, maxPx, quality)); } catch (e) { failed++; } progress(`Processing images ${++done}/${total}…`, done / total); }
+    if (r.q.length) out.push(r);
+  }
+  const nAns = applyAnswers(out, answers);
+  out.forEach(r => delete r.srcNum);
+  const folder = (files.find(f => (f.relPath || f.webkitRelativePath || '').includes('/')) || {});
+  const folderName = (folder.relPath || folder.webkitRelativePath || '').split('/')[0];
+  if (replace) {
+    H.game.rounds = out;
+    if (folderName && (H.game.title === 'Picture Trivia' || !H.game.title || true)) H.game.title = prettyTitle(folderName);
+    resetRoundState(0);
+  } else H.game.rounds.push(...out);
+  gcImages(); progress(`Loaded ${out.length} rounds${nAns ? `, ${nAns} with answer notes` : ''}${failed ? `, ${failed} images failed` : ''}.`, 1); progressDone();
+  commit({ setup: true });
+  toast(`Loaded ${out.length} rounds${nAns ? ` (${nAns} with answer notes)` : ''}`);
+}
+const looksLikeImgSrc = v => typeof v === 'string' && /^(data:image|https?:|blob:)/i.test(v.trim());
+async function importGameObject(obj) {
+  const rounds = obj.rounds.filter(Boolean);
+  if (H.game.rounds.length && !confirm(`Replace the current game (${H.game.rounds.length} rounds) with "${obj.title || 'imported game'}" (${rounds.length} rounds)?`)) { $('#importProg').classList.add('hidden'); return; }
+  const { maxPx, quality } = H.session.settings; const cache = new Map();
+  const dict = obj.images && typeof obj.images === 'object' ? obj.images : {};
+  const resolve = async src => {
+    if (!src) return null;
+    if (typeof src === 'object') src = src.data || src.url || src.src;
+    if (typeof src === 'string' && dict[src]) { const d = dict[src]; src = typeof d === 'string' ? d : (d.data || d.url); }
+    if (!looksLikeImgSrc(src)) return null;
+    if (cache.has(src)) return cache.get(src);
+    const id = await storeImage(await processSrc(src.trim(), maxPx, quality)); cache.set(src, id); return id;
+  };
+  const out = []; let failed = 0;
+  for (let i = 0; i < rounds.length; i++) {
+    const x = rounds[i], r = newRound();
+    r.title = String(x.title || ''); r.prompt = String(x.prompt || '');
+    const ansImg = x.answerImage ?? x.answer_image ?? (looksLikeImgSrc(x.answer) || (typeof x.answer === 'string' && dict[x.answer]) ? x.answer : (x.a ?? null));
+    r.note = String(x.note ?? x.answerNote ?? x.answerText ?? (typeof x.answer === 'string' && !looksLikeImgSrc(x.answer) && !dict[x.answer] ? x.answer : '') ?? '');
+    r.points = x.points != null && isFinite(x.points) ? Number(x.points) : null;
+    for (const s of [].concat(x.question ?? x.questions ?? x.q ?? []).slice(0, 2)) { try { const id = await resolve(s); if (id) r.q.push(id); } catch (e) { failed++; console.warn(e); } }
+    try { r.a = await resolve(ansImg); } catch (e) { failed++; }
+    if (r.q.length) out.push(r);
+    progress(`Importing round ${i + 1}/${rounds.length}…`, (i + 1) / rounds.length);
+  }
+  H.game = Object.assign(defaultGame(), { title: String(obj.title || 'Imported game'), defaultPoints: Number(obj.defaultPoints) || 1, wrongPenalty: Number(obj.wrongPenalty) || 0, rounds: out });
+  resetRoundState(0); gcImages();
+  progress(`Imported "${H.game.title}": ${out.length} rounds${failed ? `, ${failed} images failed` : ''}.`, 1); progressDone();
+  commit({ setup: true }); toast(`Imported ${out.length} rounds`);
+}
+async function addFromUrls(text) {
+  const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+  if (!lines.length) return;
+  const { maxPx, quality } = H.session.settings; let added = 0, failed = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const [main, ...noteParts] = lines[i].split(/\s+#\s+/);
+    const [qs, a] = main.split(/\s*>\s*/);
+    const r = newRound(); r.note = noteParts.join(' # ');
+    for (const u of qs.split(/\s*\|\s*/).filter(Boolean).slice(0, 2)) { try { r.q.push(await storeImage(await processSrc(u, maxPx, quality))); } catch (e) { failed++; } }
+    if (a) { try { r.a = await storeImage(await processSrc(a.trim(), maxPx, quality)); } catch (e) { failed++; } }
+    if (r.q.length) { H.game.rounds.push(r); added++; }
+    progress(`Adding URL rounds ${i + 1}/${lines.length}…`, (i + 1) / lines.length);
+  }
+  progressDone(); if (H.game.rounds.length === added) resetRoundState(0);
+  commit({ setup: true }); toast(`Added ${added} rounds${failed ? `; ${failed} images could not be loaded` : ''}`);
+  return added;
+}
+function exportGame() {
+  const g = H.game;
+  const out = {
+    format: 'picture-buzzer-game', version: 1, title: g.title, defaultPoints: g.defaultPoints, wrongPenalty: g.wrongPenalty, exportedAt: new Date().toISOString(),
+    rounds: g.rounds.map(r => ({ title: r.title, prompt: r.prompt, note: r.note, points: r.points, question: r.q.map(imgSrc).filter(Boolean), answer: r.a ? imgSrc(r.a) : null })),
+  };
+  const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
+  const a = h('a', { href: URL.createObjectURL(blob), download: (g.title || 'game').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.picbuzz.json' });
+  document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function pickImage(onFile) {
+  const inp = h('input', { type: 'file', accept: 'image/*' });
+  inp.onchange = () => { if (inp.files[0]) onFile(inp.files[0]); };
+  inp.click();
+}
+async function setRoundImage(r, slot, fileOrUrl) {
+  const { maxPx, quality } = H.session.settings;
+  try {
+    const rec = typeof fileOrUrl === 'string' ? await processSrc(fileOrUrl, maxPx, quality) : await compressBlob(fileOrUrl, maxPx, quality);
+    const id = await storeImage(rec);
+    if (slot === 'a') r.a = id; else { const i = slot === 'q2' ? 1 : 0; if (i === 1 && !r.q.length) r.q.push(id); else r.q[i] = id; }
+    gcImages(); commit({ setup: true });
+  } catch (e) { toast('Could not load that image'); }
+}
+/* ---------- host UI ---------- */
+function buildHost() {
+  document.title = 'Host · Picture Buzzer';
+  document.body.className = 'view-host';
+  $('#app').innerHTML = `
+<div class="host">
+  <div class="topbar">
+    <div class="brand">🔔 Picture Buzzer</div>
+    <div class="tabs"><button data-tab="play" class="active">Play</button><button data-tab="setup">Game setup</button><button data-tab="help">Help</button></div>
+    <div class="grow"></div>
+    <label class="row">Host name <input id="hostName" style="width:9em" maxlength="24"></label>
+    <div class="row"><span class="muted">Room</span><span id="roomCode" class="roomcode code"></span><button class="small ghost" id="btnRoom" title="Change room code">✎</button></div>
+    <div class="pill" id="netStatus"><span class="dot"></span><span class="txt">…</span></div>
+  </div>
+  <div id="tab-play" class="hostmain">
+    <div class="side">
+      <div class="card col">
+        <div class="row"><h3 class="grow">Players</h3><span class="muted" id="streamCount" style="font-size:.85rem"></span></div>
+        <div id="plist" class="plist"></div>
+        <form id="addPlayer" class="row" autocomplete="off"><input id="newPlayer" class="grow" placeholder="Add player name" maxlength="24"><button class="blue">Add</button></form>
+      </div>
+      <div class="card col">
+        <h3>Share</h3>
+        <div id="fileWarn" class="hidden" style="color:var(--orange);font-size:.85rem">You opened this as a local file, so friends can’t use these links. Host index.html on a web page, or send friends the file and the room code.</div>
+        <div class="muted" style="font-size:.85rem">Player link (send to friends):</div>
+        <div class="linkbox"><input id="linkPlayer" readonly><button class="small" data-copy="linkPlayer">Copy</button></div>
+        <div class="muted" style="font-size:.85rem">Stream link (OBS browser source 1920×1080):</div>
+        <div class="linkbox"><input id="linkStream" readonly><button class="small" data-copy="linkStream">Copy</button></div>
+        <div class="row" style="font-size:.85rem"><label class="row">Background <select id="streamBg"><option value="dark">Dark</option><option value="transparent">Transparent</option><option value="green">Green screen</option><option value="black">Black</option></select></label><label class="row"><input type="checkbox" id="streamSound"> Stream sounds</label></div>
+        <div class="row"><button class="small ghost" id="openStream">Open stream view</button><button class="small ghost" id="openPlayer">Open a player view</button></div>
+      </div>
+    </div>
+    <div class="col" style="min-width:0">
+      <div class="roundhead"><span class="rn" id="rNum"></span><span class="rt" id="rTitle"></span><span class="rp" id="rPrompt"></span></div>
+      <div id="buzzbar" class="buzzbar">
+        <span id="buzzText" class="grow"></span>
+        <span class="row" id="judge"><button id="bCorrect" class="green">✔ Correct<span class="kbd">C</span></button><input id="pts" type="number" step="any" style="width:4.5em" title="Points for a correct answer"><span style="font-size:1rem" class="muted">pts</span><button id="bWrong" class="red">✖ Wrong<span class="kbd">W</span></button></span>
+      </div>
+      <div class="controls">
+        <button id="bPrev">◀ Prev<span class="kbd">←</span></button>
+        <button id="bNext">Next ▶<span class="kbd">→</span></button>
+        <button id="bOpen" class="green">Open buzzers<span class="kbd">O</span></button>
+        <button id="bLock">Lock buzzers<span class="kbd">L</span></button>
+        <button id="bReset">Reset buzzers<span class="kbd">X</span></button>
+        <button id="bReveal" class="blue">Reveal answer<span class="kbd">R</span></button>
+        <div class="grow"></div>
+        <button id="bResetGame" class="ghost">Reset game</button>
+      </div>
+      <div class="stagehost">
+        <div class="card col"><div class="row"><b class="grow">Question (everyone sees this)</b><span class="pill" id="revealPill"></span></div><div class="imgarea" id="hostQ"></div></div>
+        <div class="answerbox"><div class="lbl" id="ansLbl">Answer: host only until revealed</div><div class="imgarea" id="hostA"></div><div class="note" id="hostNote"></div></div>
+      </div>
+      <div class="strip" id="strip"></div>
+    </div>
+  </div>
+  <div id="tab-setup" class="setup hidden">
+    <div class="card col">
+      <h2>Load a game</h2>
+      <div class="drop" id="drop">
+        <b>Drag and drop a folder, image files, a .zip, or a game file (.json) here</b>
+        <div class="muted" style="margin-top:.4rem">Files pair up by number: <code>01_question.jpg</code> + <code>01_answer.jpg</code>. Two question images with the same number (e.g. <code>05_a.png</code>, <code>05_b.png</code>) show side by side. Include <code>answers.md</code>, <code>.txt</code>, or <code>.json</code> to fill in the answer notes.</div>
+        <div class="row" style="justify-content:center;margin-top:.9rem"><button id="pickFiles" class="primary">Choose files…</button><button id="pickFolder">Choose folder…</button><button id="pickJson">Import game file (.json)…</button></div>
+        <input type="file" id="fileInput" multiple accept="image/*,.json,.md,.txt,.zip" hidden>
+        <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+        <input type="file" id="jsonInput" accept=".json,application/json" hidden>
+      </div>
+      <div id="importProg" class="hidden col"><div id="importMsg"></div><div class="progress"><div id="importBar"></div></div></div>
+      <details><summary><b>Paste image URLs</b></summary>
+        <div class="muted" style="margin:.4rem 0">One round per line: <code>question_url</code>, or <code>left_url | right_url</code> for two side by side. Add <code>&gt; answer_url</code> for an answer image and <code> # answer note</code> for the answer text. Images from sites that block cross-origin loading are linked instead of embedded, so viewers load them straight from that site.</div>
+        <textarea id="urls" rows="4" style="width:100%" placeholder="https://example.com/q1.jpg > https://example.com/a1.jpg # The phone on the desk"></textarea>
+        <div class="row" style="margin-top:.4rem"><button id="addUrls" class="blue">Add rounds from URLs</button></div>
+      </details>
+    </div>
+    <div class="card col">
+      <h2>Game</h2>
+      <div class="row"><label class="col grow">Title <input id="gTitle" maxlength="80"></label><label class="col">Default points <input id="gPoints" type="number" step="any" style="width:7em"></label><label class="col">Wrong-answer penalty <input id="gPenalty" type="number" step="any" style="width:7em"></label>
+        <label class="col">Image size <select id="sMaxPx"><option value="1280">1280 px (fastest)</option><option value="1600">1600 px</option><option value="1920">1920 px (sharpest)</option></select></label></div>
+      <div class="row settings">
+        <label><input type="checkbox" id="sAutoOpen"> Open buzzers automatically on each new round</label>
+        <label><input type="checkbox" id="sAutoReveal"> Reveal the answer automatically when marked correct</label>
+        <label><input type="checkbox" id="sSelfJoin"> Players can add themselves by typing a name</label>
+        <label><input type="checkbox" id="sSound"> Host sounds</label>
+      </div>
+      <div class="row"><button id="exportGame" class="primary">Export / save game file</button><button id="addRound">+ Add empty round</button><button id="clearRounds" class="red">Remove all rounds</button><span class="muted" id="gameStats"></span></div>
+      <details><summary><b>Connection help: optional TURN relay server</b></summary>
+        <div class="muted" style="margin:.4rem 0">Most home networks connect directly. If a player sits behind a strict firewall or mobile network and can’t connect, add a TURN server here (for example a free-tier account from Metered or Cloudflare, or your own coturn). It’s added to the player and stream links automatically, so re-copy the links after saving.</div>
+        <div class="row"><input id="tUrl" class="grow" placeholder="turn:turn.example.com:3478?transport=udp, turns:turn.example.com:443"><input id="tUser" placeholder="username" style="width:10em"><input id="tPass" placeholder="credential" style="width:10em"><button id="tSave" class="blue">Save</button></div>
+      </details>
+      <div id="dbWarn" class="hidden" style="color:var(--orange)">This browser blocked storage (IndexedDB), so images won’t survive a page refresh. Export the game file to keep it.</div>
+    </div>
+    <div class="card col"><h2>Rounds</h2><div class="muted">Click a slot or drop an image on it to set it. Text changes save automatically. Prompt and title show to everyone; the answer note shows only after you reveal.</div><div id="rlist" class="rlist"></div></div>
+  </div>
+  <div id="tab-help" class="help hidden">${HELP_HTML}</div>
+</div>`;
+  bindHost();
+}
+const HELP_HTML = `
+<h2>Running a game</h2>
+<ol>
+<li><b>Load a game</b> under <i>Game setup</i>: drag in a folder of images (with an optional <code>answers.md</code>), a .zip, or a saved game file (.json). You can also paste image URLs.</li>
+<li><b>Add your players</b> (optional: friends can type their own name when they join).</li>
+<li><b>Share the player link</b> (or just the room code). Friends open it on a phone or computer and pick or type their name.</li>
+<li><b>Add the stream view to OBS</b>: Sources → + → <i>Browser</i>, paste the stream link, Width 1920, Height 1080. To hear the buzz sounds, tick “Control audio via OBS”. For a see-through background choose <i>Transparent</i> before copying the link.</li>
+<li>Play: when someone buzzes, their name lights up. Press <b>Correct</b> (adds the points) or <b>Wrong</b> (locks that player out for this round and reopens the buzzers for everyone else). Press <b>Reveal</b> to show the answer to everyone. <b>Next</b> moves on and opens the buzzers again.</li>
+</ol>
+<h2>Keyboard shortcuts (host)</h2>
+<p><code>←</code>/<code>→</code> previous/next round · <code>O</code> open buzzers · <code>L</code> lock · <code>C</code> correct · <code>W</code> wrong · <code>R</code> reveal or hide · <code>X</code> reset buzzers (clears lockouts)</p>
+<h2>Good to know</h2>
+<ul>
+<li>This page is the game’s brain. Keep this tab open while you play. If you refresh it, the game, scores, and images come back and players reconnect on their own.</li>
+<li>Players never receive the answer image or note until you reveal.</li>
+<li>Multi-item rounds (“find all 10”): mark Correct for each item found, then press <b>Open buzzers</b> again.</li>
+<li>Connections are peer-to-peer (WebRTC) using the free PeerJS broker, so everyone needs internet access. If a player can’t connect on a strict network (some work or school Wi-Fi), have them try mobile data.</li>
+<li>Custom room code: click ✎ next to the room code, or open <code>?view=host&amp;room=MYCODE</code>.</li>
+</ul>
+<h2>File naming for folders</h2>
+<p><code>01_question.jpg</code>, <code>01_answer.jpg</code>, <code>02_question.jpg</code>, … The first number in a filename sets the round. Names containing <i>answer</i>, <i>ans</i>, <i>reveal</i>, or <i>solution</i> become the answer image. Two non-answer images with the same number show side by side as A and B (for example, “which logo is correct?”).</p>
+<p>Answer notes: <code>answers.json</code> like <code>{"1": "The phone", "2": {"prompt": "…", "note": "…", "points": 2}}</code>, or a text or markdown file with lines like <code>01: answer text</code> or table rows <code>| 01 | prompt | answer |</code>.</p>
+<p class="muted">Picture Buzzer v${APP_VERSION}</p>`;
+function bindHost() {
+  $$('.tabs button').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+  $('#hostName').oninput = e => { H.session.hostName = e.target.value.slice(0, 24) || 'Host'; saveNow(); broadcastSoon(); };
+  $('#btnRoom').onclick = () => {
+    const v = prompt('Room code (4-12 letters/numbers). Leave blank for a new random code.', H.session.room);
+    if (v === null) return; const code = normRoom(v) || newRoomCode();
+    if (code.length < 4) { toast('Room code needs at least 4 characters'); return; }
+    H.session.room = code; H.session.bindings = {}; saveNow(); H.net.changeRoom(code); renderHostAll();
+    history.replaceState(null, '', baseUrl() + '?view=host');
+  };
+  $('#addPlayer').onsubmit = e => { e.preventDefault(); const v = $('#newPlayer').value.trim(); if (v) { addPlayer(v); $('#newPlayer').value = ''; } };
+  $$('[data-copy]').forEach(b => b.onclick = () => copyText($('#' + b.dataset.copy).value));
+  $('#streamBg').onchange = e => { H.session.settings.streamBg = e.target.value; saveNow(); renderTop(); };
+  $('#streamSound').onchange = e => { H.session.settings.streamSound = e.target.checked; saveNow(); renderTop(); };
+  $('#openStream').onclick = () => window.open($('#linkStream').value, '_blank');
+  $('#openPlayer').onclick = () => window.open($('#linkPlayer').value, '_blank');
+  $('#bPrev').onclick = () => gotoRound(H.session.roundIndex - 1);
+  $('#bNext').onclick = () => gotoRound(H.session.roundIndex + 1);
+  $('#bOpen').onclick = openBuzz; $('#bLock').onclick = lockBuzz; $('#bReset').onclick = resetBuzz;
+  $('#bReveal').onclick = toggleReveal; $('#bResetGame').onclick = resetGame;
+  $('#bCorrect').onclick = markCorrect; $('#bWrong').onclick = markWrong;
+  // setup tab
+  const drop = $('#drop');
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = async e => { e.preventDefault(); drop.classList.remove('over'); const files = await filesFromDataTransfer(e.dataTransfer); importFiles(files); };
+  addEventListener('dragover', e => e.preventDefault()); addEventListener('drop', e => e.preventDefault());
+  $('#pickFiles').onclick = () => $('#fileInput').click();
+  $('#pickFolder').onclick = () => $('#folderInput').click();
+  $('#pickJson').onclick = () => $('#jsonInput').click();
+  for (const id of ['fileInput', 'folderInput', 'jsonInput']) $('#' + id).onchange = e => { const f = Array.from(e.target.files); e.target.value = ''; importFiles(f); };
+  $('#addUrls').onclick = async () => { const n = await addFromUrls($('#urls').value); if (n) $('#urls').value = ''; };
+  $('#gTitle').oninput = e => { H.game.title = e.target.value; saveNow(); broadcastSoon(); };
+  $('#gPoints').oninput = e => { H.game.defaultPoints = Number(e.target.value) || 1; saveNow(); renderPlay(true); broadcastSoon(); };
+  $('#gPenalty').oninput = e => { H.game.wrongPenalty = Number(e.target.value) || 0; saveNow(); };
+  $('#sMaxPx').onchange = e => { H.session.settings.maxPx = Number(e.target.value); saveNow(); };
+  const chk = (id, key) => { $(id).onchange = e => { H.session.settings[key] = e.target.checked; commit(); }; };
+  chk('#sAutoOpen', 'autoOpen'); chk('#sAutoReveal', 'autoRevealOnCorrect'); chk('#sSelfJoin', 'allowSelfJoin'); chk('#sSound', 'sound');
+  $('#exportGame').onclick = exportGame;
+  $('#tSave').onclick = () => {
+    H.session.settings.turn = { url: $('#tUrl').value.trim(), user: $('#tUser').value.trim(), pass: $('#tPass').value.trim() };
+    saveNow(); renderTop(); H.net.changeRoom(H.session.room); toast('Saved. Re-copy the player and stream links.');
+  };
+  $('#addRound').onclick = () => { H.game.rounds.push(newRound()); commit({ setup: true }); };
+  $('#clearRounds').onclick = () => { if (!H.game.rounds.length || !confirm('Remove all rounds and images from this game?')) return; H.game.rounds = []; resetRoundState(0); gcImages(); commit({ setup: true }); };
+  addEventListener('keydown', hostKeys);
+}
+function setTab(t) {
+  H.tab = t; $$('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  for (const x of ['play', 'setup', 'help']) $('#tab-' + x).classList.toggle('hidden', x !== t);
+  if (t === 'setup') renderSetup();
+}
+function hostKeys(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tg = e.target; if (tg && (/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName) || tg.isContentEditable)) return;
+  if (H.tab !== 'play') return;
+  const k = e.key.toLowerCase();
+  const map = { arrowleft: () => gotoRound(H.session.roundIndex - 1), arrowright: () => gotoRound(H.session.roundIndex + 1), o: openBuzz, l: lockBuzz, c: markCorrect, w: markWrong, r: toggleReveal, x: resetBuzz };
+  if (map[k]) { e.preventDefault(); map[k](); }
+}
+function netParams() {
+  const t = H.session.settings.turn || {}; let q = '';
+  if (t.url) q += '&turn=' + encodeURIComponent(t.url) + (t.user ? '&turnuser=' + encodeURIComponent(t.user) : '') + (t.pass ? '&turnpass=' + encodeURIComponent(t.pass) : '');
+  for (const k of ['peerhost', 'peerport', 'peerpath', 'peersecure']) if (params.get(k)) q += `&${k}=` + encodeURIComponent(params.get(k));
+  return q;
+}
+const playerLink = () => baseUrl() + '?view=player&room=' + H.session.room + netParams();
+function streamLink() {
+  const st = H.session.settings; let u = baseUrl() + '?view=stream&room=' + H.session.room + netParams();
+  if (st.streamBg && st.streamBg !== 'dark') u += '&bg=' + st.streamBg;
+  if (!st.streamSound) u += '&sound=0';
+  return u;
+}
+function renderTop() {
+  if (!H.session) return;
+  const s = H.session, n = H.net;
+  $('#roomCode').textContent = s.room;
+  if (document.activeElement !== $('#hostName')) $('#hostName').value = s.hostName;
+  const st = n ? n.state : 'loading';
+  const ns = $('#netStatus');
+  ns.querySelector('.dot').className = 'dot ' + (st === 'online' ? 'on' : (st === 'error' ? 'off' : 'warn'));
+  ns.querySelector('.txt').textContent = (NET_TEXT[st] || st) + (n && n.detail ? ': ' + n.detail : '') + (st === 'taken' && n.fails > 4 ? ' (is this room open in another tab?)' : '');
+  $('#linkPlayer').value = playerLink();
+  $('#linkStream').value = streamLink();
+  $('#streamBg').value = s.settings.streamBg || 'dark'; $('#streamSound').checked = !!s.settings.streamSound;
+  $('#fileWarn').classList.toggle('hidden', location.protocol !== 'file:');
+  const streams = [...H.conns].filter(m => m.role === 'stream').length;
+  $('#streamCount').textContent = `${streams} stream view${streams === 1 ? '' : 's'} connected`;
+}
+function renderPlayers() {
+  const s = H.session, list = $('#plist'); list.innerHTML = '';
+  if (!s.players.length) list.append(h('div', { class: 'muted' }, 'No players yet. Add them here, or friends can join with the player link.'));
+  for (const p of s.players) {
+    const on = isConnected(p.id);
+    list.append(h('div', { class: 'prow' + (s.winner === p.id ? ' winner' : '') + (s.lockedOut.includes(p.id) ? ' locked' : ''), style: { borderLeftColor: p.color }, 'data-pid': p.id },
+      h('span', { class: 'dot ' + (on ? 'on' : 'off'), title: on ? 'Connected' : 'Not connected' }),
+      h('span', { class: 'pname', title: p.name }, p.name, s.lockedOut.includes(p.id) ? h('span', { title: 'Locked out this round' }, ' 🔒') : null),
+      h('button', { class: 'small', title: 'Subtract 1 point', onclick: () => adjustScore(p.id, -1) }, '−'),
+      h('span', { class: 'pscore' }, String(p.score)),
+      h('div', { class: 'menu' },
+        h('button', { class: 'small', title: 'Add 1 point', onclick: () => adjustScore(p.id, 1) }, '+'),
+        h('button', { class: 'small ghost', title: 'Rename', onclick: () => renamePlayer(p.id) }, '✎'),
+        h('button', { class: 'small ghost', title: 'Remove', onclick: () => removePlayer(p.id) }, '✕'))));
+  }
+}
+function renderPlay(ptsOnly) {
+  const s = H.session, g = H.game, r = curRound();
+  if (r && (H._ptsRound !== r.id || ptsOnly)) { $('#pts').value = roundPoints(r); H._ptsRound = r.id; }
+  if (ptsOnly) return;
+  $('#rNum').textContent = r ? `Round ${s.roundIndex + 1} / ${g.rounds.length}` : 'No rounds loaded';
+  $('#rTitle').textContent = r ? (r.title || '') : '';
+  $('#rPrompt').textContent = r ? (r.prompt || '') : '';
+  const bar = $('#buzzbar'), bt = $('#buzzText');
+  bar.className = 'buzzbar ' + (s.winner ? 'winner' : s.buzzOpen ? 'open' : 'locked');
+  let txt;
+  if (!r) txt = 'Load a game under Game setup to begin.';
+  else if (s.winner) {
+    const p = playerById(s.winner);
+    txt = h('span', null, '🔔 ', h('span', { style: { color: p ? p.color : '' } }, pname(s.winner)), ' buzzed first!',
+      s.queue.length > 1 ? h('span', { class: 'muted', style: { fontSize: '1rem', fontWeight: 600 } }, '  then ' + s.queue.slice(1).map(q => `${pname(q.id)} (+${(q.dt / 1000).toFixed(2)}s)`).join(', ')) : null);
+  } else if (s.buzzOpen) txt = 'Buzzers OPEN. Waiting for a buzz…';
+  else txt = 'Buzzers locked';
+  if (r && !s.winner && s.last) txt = h('span', null, txt, h('span', { class: 'muted', style: { fontSize: '1rem', marginLeft: '.8em' } }, s.last.type === 'correct' ? `✔ ${pname(s.last.pid)} +${s.last.pts}` : `✖ ${pname(s.last.pid)} wrong`));
+  if (r && s.lockedOut.length) txt = h('span', null, txt, h('span', { style: { fontSize: '1rem', color: 'var(--red)', marginLeft: '.8em' } }, 'Locked out: ' + s.lockedOut.map(pname).join(', ')));
+  bt.replaceChildren(txt);
+  $('#bCorrect').disabled = $('#bWrong').disabled = !s.winner;
+  $('#bPrev').disabled = !r || s.roundIndex <= 0; $('#bNext').disabled = !r || s.roundIndex >= g.rounds.length - 1;
+  $('#bOpen').disabled = $('#bLock').disabled = $('#bReset').disabled = $('#bReveal').disabled = !r;
+  $('#bOpen').textContent = ''; $('#bOpen').append(s.winner ? 'Clear buzz & reopen' : 'Open buzzers', h('span', { class: 'kbd' }, 'O'));
+  $('#bReveal').textContent = ''; $('#bReveal').append(s.revealed ? 'Hide answer' : 'Reveal answer', h('span', { class: 'kbd' }, 'R'));
+  const rp = $('#revealPill'); rp.textContent = s.revealed ? 'ANSWER REVEALED' : 'Answer hidden'; rp.style.background = s.revealed ? 'var(--blue)' : ''; rp.style.color = s.revealed ? '#021428' : '';
+  renderImgPair($('#hostQ'), r ? r.q : [], imgSrc, { empty: r ? 'No question image. Add one in Game setup.' : '' });
+  renderImgPair($('#hostA'), r && r.a ? [r.a] : [], imgSrc, { empty: r ? 'No answer image for this round' : '' });
+  $('#hostNote').textContent = r ? (r.note || '') : '';
+  $('#ansLbl').textContent = s.revealed ? 'Answer: revealed to everyone' : 'Answer: host only until revealed';
+  const strip = $('#strip'), key = g.rounds.map(x => x.id + (x.q[0] || '')).join(',') + '@' + s.roundIndex;
+  if (strip._key !== key) {
+    strip._key = key; strip.innerHTML = '';
+    g.rounds.forEach((x, i) => {
+      const t = thumbSrc(x.q[0]);
+      strip.append(h('div', { class: 'th' + (i === s.roundIndex ? ' cur' : ''), title: `Round ${i + 1}${x.title ? ': ' + x.title : ''}`, style: t ? { backgroundImage: `url("${t}")` } : null, onclick: () => gotoRound(i) }, h('span', null, String(i + 1))));
+    });
+    const cur = strip.children[s.roundIndex]; if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
+}
+function renderHostAll() { if (!H.session || !$('#plist')) return; renderTop(); renderPlayers(); renderPlay(); }
+function renderSetup() {
+  const g = H.game, s = H.session;
+  const setv = (id, v) => { const el = $(id); if (document.activeElement !== el) el.value = v; };
+  setv('#gTitle', g.title); setv('#gPoints', g.defaultPoints); setv('#gPenalty', g.wrongPenalty);
+  $('#sMaxPx').value = String(s.settings.maxPx);
+  $('#sAutoOpen').checked = s.settings.autoOpen; $('#sAutoReveal').checked = s.settings.autoRevealOnCorrect;
+  $('#sSelfJoin').checked = s.settings.allowSelfJoin; $('#sSound').checked = s.settings.sound;
+  $('#dbWarn').classList.toggle('hidden', !H.dbFail);
+  const t = s.settings.turn || {}; setv('#tUrl', t.url || ''); setv('#tUser', t.user || ''); setv('#tPass', t.pass || '');
+  let bytes = 0; for (const r of H.images.values()) bytes += (r.data || '').length;
+  $('#gameStats').textContent = `${g.rounds.length} rounds · ${H.images.size} images · ${(bytes / 1048576 * 0.75).toFixed(1)} MB`;
+  const list = $('#rlist'); list.innerHTML = '';
+  if (!g.rounds.length) list.append(h('div', { class: 'muted' }, 'No rounds yet. Load a folder or files above.'));
+  g.rounds.forEach((r, i) => list.append(roundRow(r, i)));
+}
+function roundRow(r, i) {
+  const s = H.session;
+  const slot = (label, id, slotName, onClear) => {
+    const t = thumbSrc(id);
+    const el = h('div', { class: 'slot' + (id ? ' filled' : ''), title: 'Click or drop an image here', style: t ? { backgroundImage: `url("${t}")` } : null },
+      h('span', { class: 'lab' }, label), id ? null : '+ image',
+      id && onClear ? h('span', { class: 'x', title: 'Remove image', onclick: e => { e.stopPropagation(); onClear(); } }, '×') : null);
+    el.onclick = () => pickImage(f => setRoundImage(r, slotName, f));
+    el.ondragover = e => { e.preventDefault(); e.stopPropagation(); el.classList.add('over'); };
+    el.ondragleave = () => el.classList.remove('over');
+    el.ondrop = e => {
+      e.preventDefault(); e.stopPropagation(); el.classList.remove('over');
+      const f = Array.from(e.dataTransfer.files).find(isImageFile);
+      if (f) return setRoundImage(r, slotName, f);
+      const url = (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || '').split('\n')[0].trim();
+      if (url) setRoundImage(r, slotName, url);
+    };
+    return el;
+  };
+  const upd = (key, conv = v => v) => e => { r[key] = conv(e.target.value); saveNow(); if (curRound() === r) { renderPlay(key === 'points'); if (key !== 'points') renderPlay(); broadcastSoon(); } };
+  const move = d => {
+    const j = i + d; if (j < 0 || j >= H.game.rounds.length) return;
+    const cur = curRound(); const arr = H.game.rounds; [arr[i], arr[j]] = [arr[j], arr[i]];
+    s.roundIndex = Math.max(0, arr.indexOf(cur)); commit({ setup: true });
+  };
+  const del = () => {
+    if (!confirm(`Delete round ${i + 1}?`)) return;
+    const cur = curRound(); H.game.rounds.splice(i, 1);
+    if (cur === r) resetRoundState(Math.min(i, H.game.rounds.length - 1)); else s.roundIndex = Math.max(0, H.game.rounds.indexOf(cur));
+    gcImages(); commit({ setup: true });
+  };
+  return h('div', { class: 'rrow' + (i === s.roundIndex ? ' cur' : '') },
+    h('div', { class: 'num' }, String(i + 1)),
+    h('div', { class: 'slots' },
+      slot('Q', r.q[0], 'q1', r.q.length > 1 ? () => { r.q.splice(0, 1); gcImages(); commit({ setup: true }); } : null),
+      slot('Q2 (B)', r.q[1], 'q2', () => { r.q.splice(1, 1); gcImages(); commit({ setup: true }); }),
+      slot('Answer', r.a, 'a', () => { r.a = null; gcImages(); commit({ setup: true }); })),
+    h('div', { class: 'fields' },
+      h('input', { placeholder: 'Title (optional)', value: r.title || '', oninput: upd('title') }),
+      h('input', { placeholder: 'Prompt to show players (optional)', value: r.prompt || '', oninput: upd('prompt') }),
+      h('input', { type: 'number', step: 'any', placeholder: `pts (${H.game.defaultPoints})`, title: 'Points for this round (blank = default)', value: r.points == null ? '' : r.points, oninput: upd('points', v => (v === '' ? null : Number(v))) }),
+      h('textarea', { placeholder: 'Answer note (host only until revealed)', rows: 2, value: r.note || '', oninput: upd('note') })),
+    h('div', { class: 'rbtns' },
+      h('button', { class: 'small', title: 'Go to this round', onclick: () => { gotoRound(i); setTab('play'); } }, '▶ Play'),
+      h('button', { class: 'small ghost', title: 'Move up', onclick: () => move(-1), disabled: i === 0 }, '▲'),
+      h('button', { class: 'small ghost', title: 'Move down', onclick: () => move(1), disabled: i === H.game.rounds.length - 1 }, '▼'),
+      h('button', { class: 'small ghost', title: 'Delete round', onclick: del }, '🗑')));
+}
+async function startHost() {
+  buildHost();
+  await hostLoad();
+  renderHostAll(); renderSetup();
+  if (!H.game.rounds.length) setTab('setup');
+  H.net = new HostNet(H.session.room);
+  H.net.start();
+  window.__pb = { H, publicState, hostBuzz, gotoRound, markCorrect, markWrong, toggleReveal, openBuzz, resetBuzz, importFiles, importGameObject, addFromUrls };
+}
+
+/* =========================== PLAYER =========================== */
+function startPlayer() {
+  const room = normRoom(params.get('room'));
+  if (room.length < 4) return startLanding('Enter the room code from your host.');
+  document.title = 'Player · Picture Buzzer'; document.body.className = 'view-player';
+  $('#app').innerHTML = `
+<div class="player" id="pmain">
+  <div class="phead"><span class="me" id="me"></span><span class="myscore" id="myScore"></span><span class="muted" id="phost" style="font-size:.85rem"></span><div class="grow"></div>
+    <span class="connbar"><span class="dot" id="cdot"></span><span id="ctext"></span></span><button class="small ghost" id="switch" title="Pick a different name">Switch</button></div>
+  <div class="pstatus" id="pstatus">Connecting…</div>
+  <div class="pstage"><div class="pprompt" id="pprompt"></div><div class="imgarea" id="pimg"></div><div class="panswer hidden" id="pans"></div></div>
+  <button class="buzz" id="buzz" disabled>BUZZ!</button>
+  <div class="scores" id="pscores"></div>
+</div>
+<div class="join hidden" id="join"><div class="card">
+  <h2>Join room <span class="code" style="color:var(--accent)">${room}</span></h2>
+  <div class="muted" id="jHost"></div>
+  <div id="jPick" class="col"><div><b>Tap your name:</b></div><div class="pickbtns" id="jList"></div></div>
+  <form id="jForm" class="col" autocomplete="off"><label class="col"><b id="jNameLbl">Or type your name:</b><input id="jName" maxlength="24" placeholder="Your name" enterkeyhint="go"></label><button class="green" style="font-size:1.2rem">Join game</button></form>
+  <div id="jErr" style="color:var(--red)"></div>
+  <div class="connbar"><span class="dot" id="jdot"></span><span id="jconn">Connecting…</span></div>
+</div></div>`;
+  let S = null, pressed = false, connected = false, autoJoined = false, lastBuzzSeq = null;
+  const nameKey = 'picbuzz-name-' + room;
+  const net = new ClientNet(room, 'player', {
+    status: (st, detail) => { connected = st === 'connected'; if (!connected) cache.reset(); renderConn(st, detail); render(); },
+    msg: m => {
+      if (cache.handle(m)) return;
+      if (m.t === 'state') { S = m; pressed = false; onState(); }
+      else if (m.t === 'err') { $('#jErr').textContent = m.msg; }
+    },
+  });
+  const cache = new ImageCache(net, () => { render(); wantImages(); });
+  function wantImages() {
+    if (!S || !S.round) return;
+    const cur = S.round.q.concat(S.revealed && S.round.a ? [S.round.a] : []);
+    cache.want(cur);
+    if (cur.every(id => cache.has(id))) cache.want(S.prefetch || []);
+  }
+  function onState() {
+    if (S.you) { const me = S.players.find(p => p.id === S.you); if (me) try { localStorage.setItem(nameKey, me.name); } catch {} }
+    else if (!autoJoined && localStorage.getItem(nameKey)) { autoJoined = true; net.send({ t: 'join', name: localStorage.getItem(nameKey) }); }
+    if (S.winner && S.winner === S.you && lastBuzzSeq !== null && S.buzzSeq !== lastBuzzSeq && navigator.vibrate) navigator.vibrate([80, 40, 160]);
+    lastBuzzSeq = S.buzzSeq;
+    wantImages(); render();
+  }
+  function renderConn(st, detail) {
+    const txt = st === 'error' ? (detail || 'Error') : (STATUS_TEXT[st] || st);
+    for (const [d, t] of [['#cdot', '#ctext'], ['#jdot', '#jconn']]) {
+      $(d).className = 'dot ' + (st === 'connected' ? 'on' : st === 'error' ? 'off' : 'warn');
+      $(t).textContent = st === 'connected' ? 'Connected' : txt;
+    }
+  }
+  const canBuzz = () => !!(connected && S && S.you && S.round && S.buzzOpen && !S.winner && !S.revealed && !S.lockedOut.includes(S.you) && !pressed);
+  function doBuzz() {
+    if (!canBuzz()) return;
+    pressed = true; net.send({ t: 'buzz', rid: S.round.id });
+    if (navigator.vibrate) navigator.vibrate(25);
+    render();
+    setTimeout(() => { if (pressed) { pressed = false; render(); } }, 4000);
+  }
+  function render() {
+    const joinNeeded = connected && S && !S.you;
+    $('#join').classList.toggle('hidden', !joinNeeded && !(!S));
+    $('#pmain').classList.toggle('hidden', joinNeeded || !S);
+    if (!S) { $('#jPick').classList.add('hidden'); return; }
+    // join card
+    $('#jHost').textContent = `Hosted by ${S.hostName}${S.title ? ' · ' + S.title : ''}`;
+    const list = $('#jList'); list.innerHTML = '';
+    S.players.forEach(p => list.append(h('button', { style: { background: p.color, color: '#111' }, onclick: () => { $('#jErr').textContent = ''; net.send({ t: 'join', pid: p.id }); } }, p.name + (p.connected ? ' •' : ''))));
+    $('#jPick').classList.toggle('hidden', !S.players.length);
+    $('#jForm').classList.toggle('hidden', !S.allowSelfJoin);
+    $('#jNameLbl').textContent = S.players.length ? 'Or type your name:' : 'Your name:';
+    if (joinNeeded) return;
+    // main
+    const me = S.players.find(p => p.id === S.you);
+    $('#me').textContent = me ? me.name : ''; $('#me').style.color = me ? me.color : '';
+    $('#myScore').textContent = me ? `${me.score} pt${me.score === 1 ? '' : 's'}` : '';
+    $('#phost').textContent = `Room ${room} · Host: ${S.hostName}`;
+    const r = S.round, st = $('#pstatus'), btn = $('#buzz');
+    const nm = id => (S.players.find(p => p.id === id) || { name: '?' }).name;
+    let cls = '', txt = '', bl = 'LOCKED', bcls = '';
+    if (!connected) { txt = 'Reconnecting…'; }
+    else if (!r) { txt = 'Waiting for the host to start…'; }
+    else if (S.revealed) { cls = 'rev'; txt = 'Answer revealed'; }
+    else if (S.winner === S.you) { cls = 'win'; txt = '🔔 You buzzed first! Answer now!'; bl = "YOU'RE FIRST!"; bcls = 'win'; }
+    else if (S.winner) { cls = 'other'; txt = `🔔 ${nm(S.winner)} buzzed first`; bl = `${nm(S.winner).toUpperCase()} BUZZED`; }
+    else if (S.lockedOut.includes(S.you)) { cls = 'out'; txt = '✖ You’re locked out this round'; bl = 'LOCKED OUT'; }
+    else if (S.buzzOpen) { cls = 'open'; txt = 'Buzzers OPEN: tap BUZZ!'; bl = pressed ? '…' : 'BUZZ!'; }
+    else { txt = 'Buzzers locked'; }
+    if (connected && r && !S.winner && S.last && S.last.type === 'correct' && !S.buzzOpen) txt += ` · ✔ ${nm(S.last.pid)} +${S.last.pts}`;
+    st.className = 'pstatus ' + cls; st.textContent = txt;
+    btn.textContent = bl; btn.disabled = !canBuzz() && bcls !== 'win';
+    btn.className = 'buzz ' + bcls + (canBuzz() ? ' armed' : '') + (pressed ? ' pressed' : '');
+    if (bcls === 'win') btn.disabled = true, btn.classList.add('win');
+    $('#pprompt').textContent = r ? [r.title, r.prompt].filter(Boolean).join(': ') : '';
+    $('#pprompt').classList.toggle('hidden', !r || (!r.title && !r.prompt));
+    const showIds = r ? (S.revealed && r.a ? [r.a] : r.q) : [];
+    renderImgPair($('#pimg'), showIds, id => cache.src(id), { empty: r ? '' : 'Waiting for the first round…', labels: !(S.revealed && r && r.a) });
+    const ans = $('#pans');
+    ans.classList.toggle('hidden', !(r && S.revealed && r.note));
+    ans.textContent = r && S.revealed ? '✅ ' + (r.note || '') : '';
+    const sc = $('#pscores'); sc.innerHTML = '';
+    for (const p of S.players) sc.append(h('div', { class: 'chip' + (S.winner === p.id ? ' win' : '') + (S.lockedOut.includes(p.id) ? ' out' : '') + (p.id === S.you ? ' me' : ''), style: { borderColor: S.winner === p.id ? '' : p.color } }, p.name, h('b', null, String(p.score))));
+  }
+  $('#buzz').addEventListener('pointerdown', e => { e.preventDefault(); doBuzz(); });
+  $('#buzz').addEventListener('click', e => { if (e.detail === 0) doBuzz(); });
+  addEventListener('keydown', e => {
+    if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    if (e.code === 'Space' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!e.repeat) doBuzz(); }
+  });
+  $('#jForm').onsubmit = e => { e.preventDefault(); const n = $('#jName').value.trim(); if (!n) return; $('#jErr').textContent = ''; net.send({ t: 'join', name: n }); };
+  $('#switch').onclick = () => { if (confirm('Pick a different name?')) { try { localStorage.removeItem(nameKey); } catch {} autoJoined = true; net.send({ t: 'leave' }); } };
+  $('#jName').value = localStorage.getItem(nameKey) || '';
+  net.start();
+  window.__pb = { get S() { return S; }, net, cache, doBuzz };
+}
+/* =========================== STREAM (OBS) =========================== */
+function startStream() {
+  const room = normRoom(params.get('room'));
+  if (room.length < 4) return startLanding('Enter the room code to open the stream view.');
+  const bg = (params.get('bg') || 'dark').toLowerCase();
+  const sound = params.get('sound') !== '0';
+  document.title = 'Stream · Picture Buzzer';
+  document.body.className = 'view-stream bg-' + (['dark', 'transparent', 'green', 'black'].includes(bg) ? bg : 'dark');
+  $('#app').innerHTML = `
+<div class="stream">
+  <div class="s-top" id="sTop"><div class="s-panel s-round" id="sRound"></div><div class="s-panel s-title" id="sTitle"></div><div class="s-panel s-state" id="sState"></div><div class="s-panel s-host" id="sHost"></div></div>
+  <div class="s-panel s-prompt hidden" id="sPrompt"></div>
+  <div class="s-stage" id="sStage">
+    <div class="imgarea" id="sImg"></div>
+    <div class="s-answer hidden" id="sAns"></div>
+    <div class="s-revealtag hidden" id="sRevTag">ANSWER</div>
+    <div class="s-banner hidden" id="sBanner"></div>
+    <div class="s-toast hidden" id="sToast"></div>
+  </div>
+  <div class="s-scores" id="sScores"></div>
+</div>
+<div class="s-flash" id="sFlash"></div>`;
+  let S = null, connected = false, seenSeq = null, seenLast = null, connSt = 'loading';
+  const net = new ClientNet(room, 'stream', {
+    status: st => { connSt = st; connected = st === 'connected'; if (!connected) cache.reset(); render(); },
+    msg: m => { if (cache.handle(m)) return; if (m.t === 'state') { S = m; onState(); } },
+  });
+  const cache = new ImageCache(net, () => { render(); wantImages(); });
+  function wantImages() {
+    if (!S || !S.round) return;
+    const cur = S.round.q.concat(S.revealed && S.round.a ? [S.round.a] : []);
+    cache.want(cur); if (cur.every(id => cache.has(id))) cache.want(S.prefetch || []);
+  }
+  function onState() {
+    const nm = id => (S.players.find(p => p.id === id) || { name: '?' });
+    if (seenSeq !== null && S.buzzSeq !== seenSeq && S.winner) {
+      const f = $('#sFlash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+      const b = $('#sBanner'); b.classList.remove('pop', 'gone'); void b.offsetWidth; b.classList.add('pop');
+      clearTimeout(onState._b); onState._b = setTimeout(() => b.classList.add('gone'), 2200);
+      if (sound) sfx('buzz');
+    }
+    const lastKey = S.last ? S.last.at + S.last.type : null;
+    if (seenLast !== null && lastKey && lastKey !== seenLast) {
+      const t = $('#sToast'), p = nm(S.last.pid);
+      t.className = 's-toast ' + S.last.type;
+      t.textContent = S.last.type === 'correct' ? `✔ ${p.name} +${S.last.pts}` : `✖ ${p.name}`;
+      clearTimeout(onState._t); onState._t = setTimeout(() => t.classList.add('hidden'), 2600);
+      if (sound) sfx(S.last.type);
+    }
+    seenSeq = S.buzzSeq; seenLast = lastKey || '';
+    wantImages(); render();
+  }
+  function render() {
+    const stage = $('#sStage'), r = S && S.round;
+    let wait = stage.querySelector('.s-wait');
+    const waitMsg = !connected ? (connSt === 'nohost' ? 'Waiting for the host…' : (STATUS_TEXT[connSt] || 'Connecting…')) : (!r ? 'Get ready…' : null);
+    $('#sTop').style.visibility = S ? '' : 'hidden';
+    if (!S || !r) {
+      if (!wait) { wait = h('div', { class: 's-wait' }); stage.prepend(wait); }
+      wait.replaceChildren(waitMsg, h('small', null, S ? `${S.title} · hosted by ${S.hostName}` : 'Picture Buzzer'));
+      $('#sImg').classList.add('hidden');
+    } else { if (wait) wait.remove(); $('#sImg').classList.remove('hidden'); }
+    if (!S) return;
+    const nm = id => (S.players.find(p => p.id === id) || { name: '?', color: '#ffd23f' });
+    $('#sRound').textContent = r ? `Round ${S.roundIndex + 1}/${S.roundCount}` : S.title;
+    $('#sTitle').textContent = r ? (r.title || S.title) : '';
+    $('#sHost').textContent = `Host: ${S.hostName}`;
+    const st = $('#sState');
+    if (!r) { st.className = 's-panel s-state locked'; st.textContent = ''; }
+    else if (S.revealed) { st.className = 's-panel s-state rev'; st.textContent = 'ANSWER'; }
+    else if (S.winner) { const p = nm(S.winner); st.className = 's-panel s-state winner'; st.textContent = `🔔 ${p.name.toUpperCase()}`; st.style.setProperty('--c', p.color); }
+    else if (S.buzzOpen) { st.className = 's-panel s-state open'; st.textContent = '● BUZZERS OPEN'; }
+    else { st.className = 's-panel s-state locked'; st.textContent = 'LOCKED'; }
+    const pr = $('#sPrompt'); pr.textContent = r ? (r.prompt || '') : ''; pr.classList.toggle('hidden', !(r && r.prompt));
+    const showAnsImg = !!(r && S.revealed && r.a);
+    renderImgPair($('#sImg'), r ? (showAnsImg ? [r.a] : r.q) : [], id => cache.src(id), { labels: !showAnsImg });
+    $('#sRevTag').classList.toggle('hidden', !showAnsImg);
+    const ans = $('#sAns'); ans.classList.toggle('hidden', !(r && S.revealed && r.note));
+    ans.replaceChildren(h('span', { class: 'lbl' }, 'ANSWER:'), r && S.revealed ? r.note || '' : '');
+    const b = $('#sBanner');
+    if (r && S.winner && !S.revealed) { const p = nm(S.winner); b.classList.remove('hidden'); b.style.setProperty('--c', p.color); b.textContent = `🔔 ${p.name}`; }
+    else b.classList.add('hidden');
+    const sc = $('#sScores'); sc.innerHTML = '';
+    for (const p of S.players) sc.append(h('div', { class: 's-card' + (S.winner === p.id ? ' win' : '') + (r && S.lockedOut.includes(p.id) ? ' out' : '') + (p.connected ? '' : ' off'), style: { '--c': p.color } },
+      h('span', { class: 'n' }, p.name), h('span', { class: 's' }, String(p.score))));
+    for (const el of sc.children) el.style.setProperty('--c', el.style.getPropertyValue('--c'));
+  }
+  // B toggles background (handy when previewing in a normal browser)
+  addEventListener('keydown', e => { if (e.key === 'b' || e.key === 'B') { const order = ['dark', 'transparent', 'green', 'black']; const cur = order.find(x => document.body.classList.contains('bg-' + x)) || 'dark'; document.body.classList.remove('bg-' + cur); document.body.classList.add('bg-' + order[(order.indexOf(cur) + 1) % order.length]); } });
+  net.start();
+  window.__pb = { get S() { return S; }, net, cache };
+}
+/* =========================== LANDING =========================== */
+function startLanding(msg) {
+  document.body.className = 'view-landing';
+  $('#app').innerHTML = `
+<div class="landing">
+  <h1>🔔 Picture Buzzer</h1>
+  <p class="muted" style="font-size:1.15rem">A real-time buzzer for picture-guessing games. The host runs the game, friends buzz in from their phones, and a clean stream view drops into OBS.</p>
+  ${msg ? `<p style="color:var(--accent);font-weight:700">${msg}</p>` : ''}
+  <div class="grid">
+    <div class="card col"><h2>Host a game</h2><p class="muted" style="margin:0">Load images, add players, run the show.</p><button class="primary" id="goHost">Open host screen</button></div>
+    <div class="card col"><h2>Join as a player</h2><input id="jRoom" class="code" placeholder="ROOM CODE" maxlength="12" style="font-size:1.4rem;text-transform:uppercase"><button class="green" id="goPlayer">Join</button></div>
+    <div class="card col"><h2>Stream view</h2><input id="sRoom" class="code" placeholder="ROOM CODE" maxlength="12" style="text-transform:uppercase"><button id="goStream">Open stream view</button></div>
+  </div>
+  <p class="muted" style="margin-top:2rem;font-size:.85rem">Everything runs in your browser. No accounts. The host’s browser holds the game; players connect peer-to-peer (WebRTC via PeerJS).</p>
+</div>`;
+  const go = q => { location.href = baseUrl() + q; };
+  $('#goHost').onclick = () => go('?view=host');
+  $('#goPlayer').onclick = () => { const r = normRoom($('#jRoom').value); if (r.length >= 4) go('?view=player&room=' + r); else toast('Enter the room code'); };
+  $('#goStream').onclick = () => { const r = normRoom($('#sRoom').value); if (r.length >= 4) go('?view=stream&room=' + r); else toast('Enter the room code'); };
+  $('#jRoom').onkeydown = e => { if (e.key === 'Enter') $('#goPlayer').click(); };
+  $('#sRoom').onkeydown = e => { if (e.key === 'Enter') $('#goStream').click(); };
+}
+/* =========================== BOOT =========================== */
+(function boot() {
+  const v = (params.get('view') || '').toLowerCase();
+  if (v === 'host') startHost();
+  else if (v === 'player' || v === 'play' || (!v && params.get('room'))) startPlayer();
+  else if (v === 'stream' || v === 'obs') startStream();
+  else startLanding();
+})();
+
+</script>
+</body>
+</html>
