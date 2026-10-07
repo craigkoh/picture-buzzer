@@ -10,6 +10,13 @@ A real-time buzzer for picture-guessing games. One static `index.html` gives you
 
 Opening `index.html` with no parameters shows a landing page (Host / Join with code / Stream).
 
+## New in 1.1
+- **Full-screen viewer**: tap or click any picture (on the player or host screen) to open it full screen. Pinch or double-tap to zoom on phones; scroll wheel or click to zoom and drag to pan on desktop. Close with ✕, Esc, a tap outside the picture, or the phone's Back gesture. It closes by itself if the host reveals, changes round, or blanks the screen, so it never shows a stale picture or the answer early.
+- **Compact buzz bar** on the player screen, pinned at the bottom, so the picture gets most of the screen. Space still buzzes.
+- **Blank / "Get ready" screen** (`B`, or the *Blank screen* button): players and the stream see your editable "Get ready" text (the stream also shows the scoreboard) while you still see the round. Buzzers are locked while blank. Optionally start every round blank (*Game setup*).
+- **Test rounds**: tick *Test round* in Game setup (or `"test": true` in a game file) for tech-check rounds. A correct answer scores 0, and leaving the last test round offers a score reset. **Reset scores** zeroes scores at any time.
+- Stream answers shrink to fit on one line.
+
 ## How it works
 - No backend and no accounts. The **host's browser holds the game state**. Players and the stream view connect to it peer-to-peer (WebRTC) through the free public PeerJS broker (`0.peerjs.com`). PeerJS 1.5.5 loads from unpkg, with jsDelivr as a fallback.
 - The host registers the PeerJS ID `picbuzz-<roomcode>`, and clients connect to that ID.
@@ -28,7 +35,7 @@ Opening `index.html` with no parameters shows a landing page (Host / Join with c
 - **Folder / files / zip**: the first number in a filename sets the round. Names containing `answer`/`ans`/`reveal`/`solution` become the answer image. Two other images with the same number show side by side as **A** and **B**.
 - **Answer notes**: `answers.json` (`{"1": "note"}` or `{"1": {"title","prompt","note","points"}}`), or a `.md`/`.txt` file with `01: note` lines, `**06: Title** …` blocks, or `| 01 | prompt | answer |` table rows.
 - **Pasted URLs**: one round per line, `q_url [| q2_url] [> answer_url] [ # note]`. Images that can't be loaded cross-origin are linked instead of embedded, so viewers fetch them straight from the source.
-- **Game file** (`.picbuzz.json`, made with *Export*): `{format:"picture-buzzer-game", version:1, title, defaultPoints, wrongPenalty, rounds:[{title,prompt,note,points,question:[dataURL|url,…], answer:dataURL|url|null}]}`.
+- **Game file** (`.picbuzz.json`, made with *Export*): `{format:"picture-buzzer-game", version:1, title, defaultPoints, wrongPenalty, rounds:[{title,prompt,note,points,test?,question:[dataURL|url,…], answer:dataURL|url|null}]}`.
 
 ## Network notes and limitations
 - Everyone needs internet access for the PeerJS broker (signaling) and the CDN.

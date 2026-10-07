@@ -1,9 +1,9 @@
 /* =========================== HOST =========================== */
 const H = { game: null, session: null, images: new Map(), conns: new Set(), net: null, tab: 'play', dbFail: false };
-const defaultSettings = () => ({ autoOpen: true, autoRevealOnCorrect: false, allowSelfJoin: true, sound: true, maxPx: 1600, quality: 0.85, streamBg: 'dark', streamSound: true, turn: { url: '', user: '', pass: '' } });
+const defaultSettings = () => ({ autoOpen: true, autoRevealOnCorrect: false, allowSelfJoin: true, sound: true, maxPx: 1600, quality: 0.85, streamBg: 'dark', streamSound: true, autoBlank: false, turn: { url: '', user: '', pass: '' } });
 const defaultGame = () => ({ title: 'Picture Trivia', defaultPoints: 1, wrongPenalty: 0, rounds: [] });
-const defaultSession = () => ({ room: newRoomCode(), hostName: 'Host', players: [], roundIndex: 0, buzzOpen: false, winner: null, winnerAt: 0, queue: [], lockedOut: [], revealed: false, last: null, buzzSeq: 0, bindings: {}, ver: 0, settings: defaultSettings() });
-const newRound = () => ({ id: 'r' + uid(8), title: '', prompt: '', note: '', points: null, q: [], a: null });
+const defaultSession = () => ({ room: newRoomCode(), hostName: 'Host', players: [], roundIndex: 0, buzzOpen: false, winner: null, winnerAt: 0, queue: [], lockedOut: [], revealed: false, last: null, buzzSeq: 0, bindings: {}, ver: 0, blank: false, blankText: 'Get ready for the next picture!', settings: defaultSettings() });
+const newRound = () => ({ id: 'r' + uid(8), title: '', prompt: '', note: '', points: null, test: false, q: [], a: null });
 const curRound = () => H.game.rounds[H.session.roundIndex] || null;
 const roundPoints = r => (r && r.points != null && r.points !== '' && isFinite(r.points)) ? Number(r.points) : (Number(H.game.defaultPoints) || 1);
 const playerById = id => H.session.players.find(p => p.id === id) || null;
@@ -45,16 +45,17 @@ function gcImages() {
 }
 /* ---------- state broadcast ---------- */
 function publicState(m) {
-  const s = H.session, g = H.game, r = curRound(), rev = s.revealed, nx = g.rounds[s.roundIndex + 1];
+  const s = H.session, g = H.game, rr = curRound(), r = s.blank ? null : rr, rev = s.revealed, nx = g.rounds[s.roundIndex + 1];
   return {
     t: 'state', v: s.ver, room: s.room, hostName: s.hostName, title: g.title,
     roundIndex: s.roundIndex, roundCount: g.rounds.length,
-    round: r ? { id: r.id, title: r.title || '', prompt: r.prompt || '', q: r.q.slice(), a: rev ? (r.a || null) : null, note: rev ? (r.note || '') : '', points: roundPoints(r) } : null,
+    round: r ? { id: r.id, title: r.title || '', prompt: r.prompt || '', q: r.q.slice(), a: rev ? (r.a || null) : null, note: rev ? (r.note || '') : '', points: roundPoints(r), test: !!r.test } : null,
+    blank: !!(s.blank && rr), blankText: s.blankText || '',
     revealed: rev, buzzOpen: s.buzzOpen, winner: s.winner, queue: s.queue, lockedOut: s.lockedOut, last: s.last, buzzSeq: s.buzzSeq,
     players: s.players.map(p => ({ id: p.id, name: p.name, score: p.score, color: p.color, connected: isConnected(p.id) })),
     allowSelfJoin: s.settings.allowSelfJoin,
     you: m && m.role === 'player' ? (m.pid || null) : null,
-    prefetch: nx ? nx.q.slice() : [],
+    prefetch: s.blank && rr ? rr.q.slice() : (nx ? nx.q.slice() : []),
   };
 }
 function hsend(m, msg) { try { if (m.conn.open) sendSplit(m.conn, msg); } catch (e) { console.warn('send failed', e); } }
@@ -67,7 +68,7 @@ function commit(opts = {}) {
 }
 function allowedImages() {
   const s = H.session, r = curRound(), set = new Set();
-  if (r) { r.q.forEach(i => set.add(i)); if (s.revealed && r.a) set.add(r.a); }
+  if (r) { r.q.forEach(i => set.add(i)); if (s.revealed && !s.blank && r.a) set.add(r.a); }
   const nx = H.game.rounds[s.roundIndex + 1]; if (nx) nx.q.forEach(i => set.add(i));
   return set;
 }
@@ -194,14 +195,14 @@ function renamePlayer(pid) {
 function adjustScore(pid, delta) { const p = playerById(pid); if (p) { p.score = Math.round((p.score + delta) * 100) / 100; commit(); } }
 function hostBuzz(pid, rid) {
   const s = H.session, r = curRound(), now = performance.now();
-  if (!r || (rid && rid !== r.id) || !s.buzzOpen || s.lockedOut.includes(pid) || s.queue.some(q => q.id === pid)) return false;
+  if (!r || s.blank || (rid && rid !== r.id) || !s.buzzOpen || s.lockedOut.includes(pid) || s.queue.some(q => q.id === pid)) return false;
   if (!s.winner) { s.winner = pid; s.winnerAt = now; s.queue = [{ id: pid, dt: 0 }]; s.buzzSeq++; if (s.settings.sound) sfx('buzz'); }
   else s.queue.push({ id: pid, dt: Math.round(now - (s.winnerAt || now)) });
   commit(); return true;
 }
 function markCorrect() {
   const s = H.session; if (!s.winner) return;
-  const v = Number($('#pts').value); const pts = isFinite(v) && $('#pts').value !== '' ? v : roundPoints(curRound());
+  const v = Number($('#pts').value); const pts = curRound() && curRound().test ? 0 : (isFinite(v) && $('#pts').value !== '' ? v : roundPoints(curRound()));
   const p = playerById(s.winner); if (p) p.score = Math.round((p.score + pts) * 100) / 100;
   s.last = { type: 'correct', pid: s.winner, pts, at: Date.now() };
   s.winner = null; s.queue = []; s.buzzOpen = false;
@@ -220,17 +221,34 @@ function markWrong() {
   if (s.settings.sound) sfx('wrong');
   commit();
 }
-function openBuzz() { const s = H.session; s.winner = null; s.queue = []; s.buzzOpen = true; commit(); }
+function openBuzz() { const s = H.session; if (s.blank) { toast('Screen is blank - press B to show the round first'); return; } s.winner = null; s.queue = []; s.buzzOpen = true; commit(); }
 function lockBuzz() { H.session.buzzOpen = false; commit(); }
-function resetBuzz() { const s = H.session; s.winner = null; s.queue = []; s.lockedOut = []; s.last = null; s.buzzOpen = true; commit(); }
+function resetBuzz() { const s = H.session; s.winner = null; s.queue = []; s.lockedOut = []; s.last = null; s.buzzOpen = !s.blank; commit(); }
+function toggleBlank(on) {
+  const s = H.session; s.blank = typeof on === 'boolean' ? on : !s.blank;
+  if (s.blank) { s.buzzOpen = false; s.winner = null; s.queue = []; }
+  else if (s.settings.autoOpen && !s.revealed && curRound()) s.buzzOpen = true;
+  commit();
+}
+function resetScores(ask = true) {
+  if (ask && !confirm('Reset all scores to 0? Players and the current round are kept.')) return;
+  H.session.players.forEach(p => { p.score = 0; }); H.session.last = null; commit(); toast('Scores reset');
+}
 function toggleReveal() { const s = H.session; s.revealed = !s.revealed; if (s.revealed) { s.buzzOpen = false; if (s.settings.sound) sfx('reveal'); } commit(); }
 function resetRoundState(i) {
   const s = H.session;
   s.roundIndex = clamp(i, 0, Math.max(0, H.game.rounds.length - 1));
   s.winner = null; s.queue = []; s.lockedOut = []; s.revealed = false; s.last = null;
-  s.buzzOpen = !!(s.settings.autoOpen && H.game.rounds.length);
+  s.blank = !!(s.settings.autoBlank && H.game.rounds.length);
+  s.buzzOpen = !!(s.settings.autoOpen && H.game.rounds.length && !s.blank);
 }
-function gotoRound(i) { if (!H.game.rounds.length) return; resetRoundState(i); commit(); }
+function gotoRound(i) {
+  if (!H.game.rounds.length) return;
+  const from = curRound(), to = H.game.rounds[clamp(i, 0, H.game.rounds.length - 1)];
+  const askReset = from && from.test && to && !to.test && H.session.players.some(p => p.score);
+  resetRoundState(i); commit();
+  if (askReset) setTimeout(() => { if (confirm('Test rounds are done. Reset all scores to 0?')) resetScores(false); }, 50);
+}
 function resetGame() {
   if (!confirm('Reset the game? Scores go to 0 and you go back to round 1. Players and rounds are kept.')) return;
   H.session.players.forEach(p => { p.score = 0; }); resetRoundState(0); commit();
@@ -321,6 +339,7 @@ async function importGameObject(obj) {
     const ansImg = x.answerImage ?? x.answer_image ?? (looksLikeImgSrc(x.answer) || (typeof x.answer === 'string' && dict[x.answer]) ? x.answer : (x.a ?? null));
     r.note = String(x.note ?? x.answerNote ?? x.answerText ?? (typeof x.answer === 'string' && !looksLikeImgSrc(x.answer) && !dict[x.answer] ? x.answer : '') ?? '');
     r.points = x.points != null && isFinite(x.points) ? Number(x.points) : null;
+    r.test = !!(x.test || x.isTest);
     for (const s of [].concat(x.question ?? x.questions ?? x.q ?? []).slice(0, 2)) { try { const id = await resolve(s); if (id) r.q.push(id); } catch (e) { failed++; console.warn(e); } }
     try { r.a = await resolve(ansImg); } catch (e) { failed++; }
     if (r.q.length) out.push(r);
@@ -352,7 +371,7 @@ function exportGame() {
   const g = H.game;
   const out = {
     format: 'picture-buzzer-game', version: 1, title: g.title, defaultPoints: g.defaultPoints, wrongPenalty: g.wrongPenalty, exportedAt: new Date().toISOString(),
-    rounds: g.rounds.map(r => ({ title: r.title, prompt: r.prompt, note: r.note, points: r.points, question: r.q.map(imgSrc).filter(Boolean), answer: r.a ? imgSrc(r.a) : null })),
+    rounds: g.rounds.map(r => ({ title: r.title, prompt: r.prompt, note: r.note, points: r.points, ...(r.test ? { test: true } : {}), question: r.q.map(imgSrc).filter(Boolean), answer: r.a ? imgSrc(r.a) : null })),
   };
   const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
   const a = h('a', { href: URL.createObjectURL(blob), download: (g.title || 'game').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.picbuzz.json' });
@@ -417,9 +436,12 @@ function buildHost() {
         <button id="bLock">Lock buzzers<span class="kbd">L</span></button>
         <button id="bReset">Reset buzzers<span class="kbd">X</span></button>
         <button id="bReveal" class="blue">Reveal answer<span class="kbd">R</span></button>
+        <button id="bBlank">Blank screen<span class="kbd">B</span></button>
         <div class="grow"></div>
+        <button id="bResetScores" class="ghost">Reset scores</button>
         <button id="bResetGame" class="ghost">Reset game</button>
       </div>
+      <div class="blankbar row hidden" id="blankBar"><b>⏸ Screen is blank</b><span class="muted">Players and stream see:</span><input id="blankText" class="grow" maxlength="120" placeholder="Get ready…"><span class="muted" style="font-size:.85rem">Buzzers locked. Press B to show the round.</span></div>
       <div class="stagehost">
         <div class="card col"><div class="row"><b class="grow">Question (everyone sees this)</b><span class="pill" id="revealPill"></span></div><div class="imgarea" id="hostQ"></div></div>
         <div class="answerbox"><div class="lbl" id="ansLbl">Answer: host only until revealed</div><div class="imgarea" id="hostA"></div><div class="note" id="hostNote"></div></div>
@@ -454,6 +476,7 @@ function buildHost() {
         <label><input type="checkbox" id="sAutoReveal"> Reveal the answer automatically when marked correct</label>
         <label><input type="checkbox" id="sSelfJoin"> Players can add themselves by typing a name</label>
         <label><input type="checkbox" id="sSound"> Host sounds</label>
+        <label><input type="checkbox" id="sAutoBlank"> Start each round on a blank "Get ready" screen</label>
       </div>
       <div class="row"><button id="exportGame" class="primary">Export / save game file</button><button id="addRound">+ Add empty round</button><button id="clearRounds" class="red">Remove all rounds</button><span class="muted" id="gameStats"></span></div>
       <details><summary><b>Connection help: optional TURN relay server</b></summary>
@@ -478,11 +501,14 @@ const HELP_HTML = `
 <li>Play: when someone buzzes, their name lights up. Press <b>Correct</b> (adds the points) or <b>Wrong</b> (locks that player out for this round and reopens the buzzers for everyone else). Press <b>Reveal</b> to show the answer to everyone. <b>Next</b> moves on and opens the buzzers again.</li>
 </ol>
 <h2>Keyboard shortcuts (host)</h2>
-<p><code>←</code>/<code>→</code> previous/next round · <code>O</code> open buzzers · <code>L</code> lock · <code>C</code> correct · <code>W</code> wrong · <code>R</code> reveal or hide · <code>X</code> reset buzzers (clears lockouts)</p>
+<p><code>←</code>/<code>→</code> previous/next round · <code>O</code> open buzzers · <code>L</code> lock · <code>C</code> correct · <code>W</code> wrong · <code>R</code> reveal or hide · <code>X</code> reset buzzers (clears lockouts) · <code>B</code> blank / “Get ready” screen</p>
 <h2>Good to know</h2>
 <ul>
 <li>This page is the game’s brain. Keep this tab open while you play. If you refresh it, the game, scores, and images come back and players reconnect on their own.</li>
 <li>Players never receive the answer image or note until you reveal.</li>
+<li><b>Blank screen</b> (<code>B</code>) hides the round from players and the stream and shows your “Get ready” text (the stream also shows the scoreboard). Buzzers stay locked while blank; you still see the round here.</li>
+<li><b>Test rounds</b> (tick “Test” in Game setup) are for tech checks: a correct answer scores 0, and when you move past the last test round you’re offered a score reset. <b>Reset scores</b> zeroes scores any time.</li>
+<li>Tap or click any picture to view it full screen. Pinch or scroll to zoom, drag to pan, and press Esc, ✕ or Back to close.</li>
 <li>Multi-item rounds (“find all 10”): mark Correct for each item found, then press <b>Open buzzers</b> again.</li>
 <li>Connections are peer-to-peer (WebRTC) using the free PeerJS broker, so everyone needs internet access. If a player can’t connect on a strict network (some work or school Wi-Fi), have them try mobile data.</li>
 <li>Custom room code: click ✎ next to the room code, or open <code>?view=host&amp;room=MYCODE</code>.</li>
@@ -511,6 +537,8 @@ function bindHost() {
   $('#bNext').onclick = () => gotoRound(H.session.roundIndex + 1);
   $('#bOpen').onclick = openBuzz; $('#bLock').onclick = lockBuzz; $('#bReset').onclick = resetBuzz;
   $('#bReveal').onclick = toggleReveal; $('#bResetGame').onclick = resetGame;
+  $('#bBlank').onclick = () => toggleBlank(); $('#bResetScores').onclick = () => resetScores();
+  $('#blankText').oninput = e => { H.session.blankText = e.target.value.slice(0, 120); saveNow(); broadcastSoon(); };
   $('#bCorrect').onclick = markCorrect; $('#bWrong').onclick = markWrong;
   // setup tab
   const drop = $('#drop');
@@ -528,7 +556,7 @@ function bindHost() {
   $('#gPenalty').oninput = e => { H.game.wrongPenalty = Number(e.target.value) || 0; saveNow(); };
   $('#sMaxPx').onchange = e => { H.session.settings.maxPx = Number(e.target.value); saveNow(); };
   const chk = (id, key) => { $(id).onchange = e => { H.session.settings[key] = e.target.checked; commit(); }; };
-  chk('#sAutoOpen', 'autoOpen'); chk('#sAutoReveal', 'autoRevealOnCorrect'); chk('#sSelfJoin', 'allowSelfJoin'); chk('#sSound', 'sound');
+  chk('#sAutoOpen', 'autoOpen'); chk('#sAutoReveal', 'autoRevealOnCorrect'); chk('#sSelfJoin', 'allowSelfJoin'); chk('#sSound', 'sound'); chk('#sAutoBlank', 'autoBlank');
   $('#exportGame').onclick = exportGame;
   $('#tSave').onclick = () => {
     H.session.settings.turn = { url: $('#tUrl').value.trim(), user: $('#tUser').value.trim(), pass: $('#tPass').value.trim() };
@@ -548,7 +576,7 @@ function hostKeys(e) {
   const tg = e.target; if (tg && (/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName) || tg.isContentEditable)) return;
   if (H.tab !== 'play') return;
   const k = e.key.toLowerCase();
-  const map = { arrowleft: () => gotoRound(H.session.roundIndex - 1), arrowright: () => gotoRound(H.session.roundIndex + 1), o: openBuzz, l: lockBuzz, c: markCorrect, w: markWrong, r: toggleReveal, x: resetBuzz };
+  const map = { arrowleft: () => gotoRound(H.session.roundIndex - 1), arrowright: () => gotoRound(H.session.roundIndex + 1), o: openBuzz, l: lockBuzz, c: markCorrect, w: markWrong, r: toggleReveal, x: resetBuzz, b: () => toggleBlank() };
   if (map[k]) { e.preventDefault(); map[k](); }
 }
 function netParams() {
@@ -601,29 +629,33 @@ function renderPlay(ptsOnly) {
   if (r && (H._ptsRound !== r.id || ptsOnly)) { $('#pts').value = roundPoints(r); H._ptsRound = r.id; }
   if (ptsOnly) return;
   $('#rNum').textContent = r ? `Round ${s.roundIndex + 1} / ${g.rounds.length}` : 'No rounds loaded';
-  $('#rTitle').textContent = r ? (r.title || '') : '';
+  $('#rTitle').textContent = r ? (r.title || '') + (r.test ? '  [TEST - scores 0]' : '') : '';
   $('#rPrompt').textContent = r ? (r.prompt || '') : '';
   const bar = $('#buzzbar'), bt = $('#buzzText');
-  bar.className = 'buzzbar ' + (s.winner ? 'winner' : s.buzzOpen ? 'open' : 'locked');
+  bar.className = 'buzzbar ' + (s.blank ? 'blank' : s.winner ? 'winner' : s.buzzOpen ? 'open' : 'locked');
   let txt;
   if (!r) txt = 'Load a game under Game setup to begin.';
   else if (s.winner) {
     const p = playerById(s.winner);
     txt = h('span', null, '🔔 ', h('span', { style: { color: p ? p.color : '' } }, pname(s.winner)), ' buzzed first!',
       s.queue.length > 1 ? h('span', { class: 'muted', style: { fontSize: '1rem', fontWeight: 600 } }, '  then ' + s.queue.slice(1).map(q => `${pname(q.id)} (+${(q.dt / 1000).toFixed(2)}s)`).join(', ')) : null);
-  } else if (s.buzzOpen) txt = 'Buzzers OPEN. Waiting for a buzz…';
+  } else if (s.blank) txt = '⏸ Blank screen: everyone sees “Get ready”';
+  else if (s.buzzOpen) txt = 'Buzzers OPEN. Waiting for a buzz…';
   else txt = 'Buzzers locked';
   if (r && !s.winner && s.last) txt = h('span', null, txt, h('span', { class: 'muted', style: { fontSize: '1rem', marginLeft: '.8em' } }, s.last.type === 'correct' ? `✔ ${pname(s.last.pid)} +${s.last.pts}` : `✖ ${pname(s.last.pid)} wrong`));
   if (r && s.lockedOut.length) txt = h('span', null, txt, h('span', { style: { fontSize: '1rem', color: 'var(--red)', marginLeft: '.8em' } }, 'Locked out: ' + s.lockedOut.map(pname).join(', ')));
   bt.replaceChildren(txt);
   $('#bCorrect').disabled = $('#bWrong').disabled = !s.winner;
   $('#bPrev').disabled = !r || s.roundIndex <= 0; $('#bNext').disabled = !r || s.roundIndex >= g.rounds.length - 1;
-  $('#bOpen').disabled = $('#bLock').disabled = $('#bReset').disabled = $('#bReveal').disabled = !r;
+  $('#bOpen').disabled = $('#bLock').disabled = $('#bReset').disabled = $('#bReveal').disabled = $('#bBlank').disabled = !r;
+  $('#bBlank').textContent = ''; $('#bBlank').append(s.blank ? 'Show round' : 'Blank screen', h('span', { class: 'kbd' }, 'B')); $('#bBlank').className = s.blank ? 'primary' : '';
+  $('#blankBar').classList.toggle('hidden', !(s.blank && r)); if (document.activeElement !== $('#blankText')) $('#blankText').value = s.blankText || '';
   $('#bOpen').textContent = ''; $('#bOpen').append(s.winner ? 'Clear buzz & reopen' : 'Open buzzers', h('span', { class: 'kbd' }, 'O'));
   $('#bReveal').textContent = ''; $('#bReveal').append(s.revealed ? 'Hide answer' : 'Reveal answer', h('span', { class: 'kbd' }, 'R'));
   const rp = $('#revealPill'); rp.textContent = s.revealed ? 'ANSWER REVEALED' : 'Answer hidden'; rp.style.background = s.revealed ? 'var(--blue)' : ''; rp.style.color = s.revealed ? '#021428' : '';
-  renderImgPair($('#hostQ'), r ? r.q : [], imgSrc, { empty: r ? 'No question image. Add one in Game setup.' : '' });
-  renderImgPair($('#hostA'), r && r.a ? [r.a] : [], imgSrc, { empty: r ? 'No answer image for this round' : '' });
+  renderImgPair($('#hostQ'), r ? r.q : [], imgSrc, { empty: r ? 'No question image. Add one in Game setup.' : '', zoom: true });
+  renderImgPair($('#hostA'), r && r.a ? [r.a] : [], imgSrc, { empty: r ? 'No answer image for this round' : '', zoom: true });
+  Viewer.check([...(r ? r.q : []), ...(r && r.a ? [r.a] : [])]);
   $('#hostNote').textContent = r ? (r.note || '') : '';
   $('#ansLbl').textContent = s.revealed ? 'Answer: revealed to everyone' : 'Answer: host only until revealed';
   const strip = $('#strip'), key = g.rounds.map(x => x.id + (x.q[0] || '')).join(',') + '@' + s.roundIndex;
@@ -643,7 +675,7 @@ function renderSetup() {
   setv('#gTitle', g.title); setv('#gPoints', g.defaultPoints); setv('#gPenalty', g.wrongPenalty);
   $('#sMaxPx').value = String(s.settings.maxPx);
   $('#sAutoOpen').checked = s.settings.autoOpen; $('#sAutoReveal').checked = s.settings.autoRevealOnCorrect;
-  $('#sSelfJoin').checked = s.settings.allowSelfJoin; $('#sSound').checked = s.settings.sound;
+  $('#sSelfJoin').checked = s.settings.allowSelfJoin; $('#sSound').checked = s.settings.sound; $('#sAutoBlank').checked = !!s.settings.autoBlank;
   $('#dbWarn').classList.toggle('hidden', !H.dbFail);
   const t = s.settings.turn || {}; setv('#tUrl', t.url || ''); setv('#tUser', t.user || ''); setv('#tPass', t.pass || '');
   let bytes = 0; for (const r of H.images.values()) bytes += (r.data || '').length;
@@ -693,7 +725,8 @@ function roundRow(r, i) {
       h('input', { placeholder: 'Title (optional)', value: r.title || '', oninput: upd('title') }),
       h('input', { placeholder: 'Prompt to show players (optional)', value: r.prompt || '', oninput: upd('prompt') }),
       h('input', { type: 'number', step: 'any', placeholder: `pts (${H.game.defaultPoints})`, title: 'Points for this round (blank = default)', value: r.points == null ? '' : r.points, oninput: upd('points', v => (v === '' ? null : Number(v))) }),
-      h('textarea', { placeholder: 'Answer note (host only until revealed)', rows: 2, value: r.note || '', oninput: upd('note') })),
+      h('textarea', { placeholder: 'Answer note (host only until revealed)', rows: 2, value: r.note || '', oninput: upd('note') }),
+      h('label', { class: 'row', style: { fontSize: '.85rem', gridColumn: '1 / -1' }, title: 'Tech-check round: correct answers score 0' }, h('input', { type: 'checkbox', class: 'rtest', checked: !!r.test, onchange: e => { r.test = e.target.checked; commit(); } }), 'Test round (doesn’t count)')),
     h('div', { class: 'rbtns' },
       h('button', { class: 'small', title: 'Go to this round', onclick: () => { gotoRound(i); setTab('play'); } }, '▶ Play'),
       h('button', { class: 'small ghost', title: 'Move up', onclick: () => move(-1), disabled: i === 0 }, '▲'),
@@ -707,5 +740,5 @@ async function startHost() {
   if (!H.game.rounds.length) setTab('setup');
   H.net = new HostNet(H.session.room);
   H.net.start();
-  window.__pb = { H, publicState, hostBuzz, gotoRound, markCorrect, markWrong, toggleReveal, openBuzz, resetBuzz, importFiles, importGameObject, addFromUrls };
+  window.__pb = { H, publicState, hostBuzz, gotoRound, markCorrect, markWrong, toggleReveal, toggleBlank, resetScores, openBuzz, resetBuzz, importFiles, importGameObject, addFromUrls };
 }

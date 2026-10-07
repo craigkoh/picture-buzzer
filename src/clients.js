@@ -8,9 +8,9 @@ function startPlayer() {
   <div class="phead"><span class="me" id="me"></span><span class="myscore" id="myScore"></span><span class="muted" id="phost" style="font-size:.85rem"></span><div class="grow"></div>
     <span class="connbar"><span class="dot" id="cdot"></span><span id="ctext"></span></span><button class="small ghost" id="switch" title="Pick a different name">Switch</button></div>
   <div class="pstatus" id="pstatus">Connecting…</div>
-  <div class="pstage"><div class="pprompt" id="pprompt"></div><div class="imgarea" id="pimg"></div><div class="panswer hidden" id="pans"></div></div>
-  <button class="buzz" id="buzz" disabled>BUZZ!</button>
+  <div class="pstage"><div class="pprompt" id="pprompt"></div><div class="pblank hidden" id="pblank"></div><div class="imgarea" id="pimg"></div><div class="panswer hidden" id="pans"></div></div>
   <div class="scores" id="pscores"></div>
+  <button class="buzz" id="buzz" disabled>BUZZ!</button>
 </div>
 <div class="join hidden" id="join"><div class="card">
   <h2>Join room <span class="code" style="color:var(--accent)">${room}</span></h2>
@@ -51,7 +51,7 @@ function startPlayer() {
       $(t).textContent = st === 'connected' ? 'Connected' : txt;
     }
   }
-  const canBuzz = () => !!(connected && S && S.you && S.round && S.buzzOpen && !S.winner && !S.revealed && !S.lockedOut.includes(S.you) && !pressed);
+  const canBuzz = () => !!(connected && S && S.you && S.round && !S.blank && S.buzzOpen && !S.winner && !S.revealed && !S.lockedOut.includes(S.you) && !pressed);
   function doBuzz() {
     if (!canBuzz()) return;
     pressed = true; net.send({ t: 'buzz', rid: S.round.id });
@@ -81,6 +81,7 @@ function startPlayer() {
     const nm = id => (S.players.find(p => p.id === id) || { name: '?' }).name;
     let cls = '', txt = '', bl = 'LOCKED', bcls = '';
     if (!connected) { txt = 'Reconnecting…'; }
+    else if (S.blank) { cls = 'blank'; txt = '⏸ Get ready…'; bl = 'GET READY'; }
     else if (!r) { txt = 'Waiting for the host to start…'; }
     else if (S.revealed) { cls = 'rev'; txt = 'Answer revealed'; }
     else if (S.winner === S.you) { cls = 'win'; txt = '🔔 You buzzed first! Answer now!'; bl = "YOU'RE FIRST!"; bcls = 'win'; }
@@ -93,10 +94,13 @@ function startPlayer() {
     btn.textContent = bl; btn.disabled = !canBuzz() && bcls !== 'win';
     btn.className = 'buzz ' + bcls + (canBuzz() ? ' armed' : '') + (pressed ? ' pressed' : '');
     if (bcls === 'win') btn.disabled = true, btn.classList.add('win');
+    $('#pblank').classList.toggle('hidden', !S.blank); $('#pblank').textContent = S.blank ? (S.blankText || 'Get ready!') : '';
+    $('#pimg').classList.toggle('hidden', !!S.blank);
     $('#pprompt').textContent = r ? [r.title, r.prompt].filter(Boolean).join(': ') : '';
     $('#pprompt').classList.toggle('hidden', !r || (!r.title && !r.prompt));
     const showIds = r ? (S.revealed && r.a ? [r.a] : r.q) : [];
-    renderImgPair($('#pimg'), showIds, id => cache.src(id), { empty: r ? '' : 'Waiting for the first round…', labels: !(S.revealed && r && r.a) });
+    renderImgPair($('#pimg'), showIds, id => cache.src(id), { empty: r ? '' : (S.blank ? '' : 'Waiting for the first round…'), labels: !(S.revealed && r && r.a), zoom: true });
+    Viewer.check(S.blank || !connected ? [] : showIds.filter(id => cache.has(id)));
     const ans = $('#pans');
     ans.classList.toggle('hidden', !(r && S.revealed && r.note));
     ans.textContent = r && S.revealed ? '✅ ' + (r.note || '') : '';
@@ -170,20 +174,27 @@ function startStream() {
   function render() {
     const stage = $('#sStage'), r = S && S.round;
     let wait = stage.querySelector('.s-wait');
-    const waitMsg = !connected ? (connSt === 'nohost' ? 'Waiting for the host…' : (STATUS_TEXT[connSt] || 'Connecting…')) : (!r ? 'Get ready…' : null);
+    const blank = !!(connected && S && S.blank);
+    const waitMsg = !connected ? (connSt === 'nohost' ? 'Waiting for the host…' : (STATUS_TEXT[connSt] || 'Connecting…')) : (blank ? (S.blankText || 'Get ready!') : (!r ? 'Get ready…' : null));
     $('#sTop').style.visibility = S ? '' : 'hidden';
-    if (!S || !r) {
+    document.body.classList.toggle('s-isblank', blank);
+    if (!S || !r || blank) {
       if (!wait) { wait = h('div', { class: 's-wait' }); stage.prepend(wait); }
-      wait.replaceChildren(waitMsg, h('small', null, S ? `${S.title} · hosted by ${S.hostName}` : 'Picture Buzzer'));
+      const board = blank && S.players.length ? h('div', { class: 's-board' }, ...S.players.slice().sort((a, b) => b.score - a.score).map((p, i) =>
+        h('div', { class: 's-brow', style: { '--c': p.color } }, h('span', { class: 'rk' }, String(i + 1)), h('span', { class: 'n' }, p.name), h('span', { class: 's' }, String(p.score))))) : null;
+      wait.className = 's-wait' + (blank ? ' blank' : '');
+      wait.replaceChildren(h('div', { class: 'msg' }, waitMsg), board || h('small', null, S ? `${S.title} · hosted by ${S.hostName}` : 'Picture Buzzer'));
       $('#sImg').classList.add('hidden');
     } else { if (wait) wait.remove(); $('#sImg').classList.remove('hidden'); }
     if (!S) return;
     const nm = id => (S.players.find(p => p.id === id) || { name: '?', color: '#ffd23f' });
-    $('#sRound').textContent = r ? `Round ${S.roundIndex + 1}/${S.roundCount}` : S.title;
+    $('#sRound').textContent = blank ? `Up next: round ${S.roundIndex + 1}/${S.roundCount}` : r ? (r.test ? 'Tech check' : `Round ${S.roundIndex + 1}/${S.roundCount}`) : S.title;
     $('#sTitle').textContent = r ? (r.title || S.title) : '';
     $('#sHost').textContent = `Host: ${S.hostName}`;
     const st = $('#sState');
-    if (!r) { st.className = 's-panel s-state locked'; st.textContent = ''; }
+    st.style.removeProperty('--c');
+    if (blank) { st.className = 's-panel s-state locked'; st.textContent = 'GET READY'; }
+    else if (!r) { st.className = 's-panel s-state locked'; st.textContent = ''; }
     else if (S.revealed) { st.className = 's-panel s-state rev'; st.textContent = 'ANSWER'; }
     else if (S.winner) { const p = nm(S.winner); st.className = 's-panel s-state winner'; st.textContent = `🔔 ${p.name.toUpperCase()}`; st.style.setProperty('--c', p.color); }
     else if (S.buzzOpen) { st.className = 's-panel s-state open'; st.textContent = '● BUZZERS OPEN'; }
@@ -193,7 +204,8 @@ function startStream() {
     renderImgPair($('#sImg'), r ? (showAnsImg ? [r.a] : r.q) : [], id => cache.src(id), { labels: !showAnsImg });
     $('#sRevTag').classList.toggle('hidden', !showAnsImg);
     const ans = $('#sAns'); ans.classList.toggle('hidden', !(r && S.revealed && r.note));
-    ans.replaceChildren(h('span', { class: 'lbl' }, 'ANSWER:'), r && S.revealed ? r.note || '' : '');
+    ans.replaceChildren(h('span', { class: 'lbl' }, 'ANSWER:'), r && S.revealed ? (r.note || '').replace(/\s*\n+\s*/g, ' ') : '');
+    fitText(ans, 2.2, 0.9);
     const b = $('#sBanner');
     if (r && S.winner && !S.revealed) { const p = nm(S.winner); b.classList.remove('hidden'); b.style.setProperty('--c', p.color); b.textContent = `🔔 ${p.name}`; }
     else b.classList.add('hidden');

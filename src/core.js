@@ -4,7 +4,7 @@
    The HOST browser is the authoritative game state. Players and the stream
    view connect to it peer-to-peer over WebRTC via PeerJS (free public broker).
    ===================================================================== */
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const PEERJS_URLS = [
   'https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js',
   'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js',
@@ -418,7 +418,7 @@ class ImageCache {
 }
 function renderImgPair(container, ids, srcOf, opts = {}) {
   // ids: array of image ids (1 or 2). Re-renders only when something changed.
-  const key = ids.join('|') + '#' + ids.map(id => (srcOf(id) ? 1 : 0)).join('') + (opts.labels ? 'L' : '');
+  const key = ids.join('|') + '#' + ids.map(id => (srcOf(id) ? 1 : 0)).join('') + (opts.labels ? 'L' : '') + (opts.zoom ? 'Z' : '');
   if (container._key === key) return; container._key = key;
   container.innerHTML = '';
   const pair = h('div', { class: 'imgpair' });
@@ -426,7 +426,8 @@ function renderImgPair(container, ids, srcOf, opts = {}) {
   ids.forEach((id, i) => {
     const src = srcOf(id);
     const box = h('div', { class: 'imgbox' });
-    if (src) box.append(h('img', { src, alt: 'round image', draggable: 'false' }));
+    if (src) box.append(h('img', { src, alt: 'round image', draggable: 'false', 'data-id': id, class: opts.zoom ? 'zoomable' : null, title: opts.zoom ? 'Click to view full screen' : null,
+      onclick: opts.zoom ? (e => { e.preventDefault(); Viewer.open(id, srcOf(id)); }) : null }));
     else box.append(h('div', { class: 'loading' }, h('div', { class: 'spinner' }), 'Loading image…'));
     if (ids.length > 1 && opts.labels !== false) box.append(h('div', { class: 'tag' }, String.fromCharCode(65 + i)));
     pair.append(box);
@@ -437,3 +438,84 @@ const STATUS_TEXT = {
   loading: 'Loading…', connecting: 'Connecting…', connected: 'Connected', reconnecting: 'Reconnecting…',
   nohost: 'Host not found yet. Is the host page open? Retrying…', broker: 'Can’t reach the PeerJS broker. Retrying…', error: 'Error',
 };
+
+/* ---------- full-screen image viewer (zoom / pan / pinch) ---------- */
+const Viewer = {
+  el: null, img: null, id: null, s: 1, x: 0, y: 0, pts: new Map(), pushed: false,
+  build() {
+    if (this.el) return;
+    const el = this.el = h('div', { class: 'viewer hidden', role: 'dialog', 'aria-label': 'Full-screen image' });
+    const img = this.img = h('img', { alt: 'full-screen image', draggable: 'false' });
+    const x = h('button', { class: 'vclose', title: 'Close (Esc)', 'aria-label': 'Close' }, '✕');
+    const hint = h('div', { class: 'vhint' }, matchMedia('(pointer:coarse)').matches ? 'Pinch to zoom · tap outside or ✕ to close' : 'Scroll or click to zoom · drag to pan · Esc to close');
+    el.append(img, x, hint); document.body.append(el);
+    x.addEventListener('click', e => { e.stopPropagation(); this.close(); });
+    let down = null, moved = false, lastTap = 0, pinch = null;
+    el.addEventListener('pointerdown', e => {
+      if (e.target === x) return;
+      try { el.setPointerCapture(e.pointerId); } catch {}
+      this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.pts.size === 2) { const [a, b] = [...this.pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), s: this.s, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, x: this.x, y: this.y }; moved = true; }
+      else { down = { x: e.clientX, y: e.clientY, ox: this.x, oy: this.y, t: e.target }; moved = false; }
+    });
+    el.addEventListener('pointermove', e => {
+      if (!this.pts.has(e.pointerId)) return;
+      this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch && this.pts.size >= 2) {
+        const [a, b] = [...this.pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+        const ns = clamp(pinch.s * d / (pinch.d || 1), 1, 8), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+        const ox = pinch.cx - innerWidth / 2, oy = pinch.cy - innerHeight / 2;
+        this.s = ns; this.x = ox - (ox - pinch.x) * ns / pinch.s + (cx - pinch.cx); this.y = oy - (oy - pinch.y) * ns / pinch.s + (cy - pinch.cy); this.apply();
+      } else if (down) {
+        const dx = e.clientX - down.x, dy = e.clientY - down.y;
+        if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+        if (moved && this.s > 1) { this.x = down.ox + dx; this.y = down.oy + dy; this.apply(); }
+      }
+    });
+    const up = e => {
+      if (!this.pts.has(e.pointerId)) return;
+      this.pts.delete(e.pointerId);
+      if (pinch) { if (this.pts.size < 2) { pinch = null; down = null; } return; }
+      if (!down) return;
+      const d = down; down = null;
+      if (moved || e.type === 'pointercancel') return;
+      const onImg = d.t === img;
+      if (!onImg && this.s <= 1) { this.close(); return; }
+      const now = Date.now(), touch = e.pointerType === 'touch';
+      if (touch) { if (now - lastTap < 320 && onImg) { this.zoomAt(e.clientX, e.clientY, this.s > 1 ? 1 : 2.5); lastTap = 0; } else lastTap = now; return; }
+      this.zoomAt(e.clientX, e.clientY, this.s > 1 ? 1 : 2.5);
+    };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    el.addEventListener('wheel', e => { e.preventDefault(); this.zoomAt(e.clientX, e.clientY, clamp(this.s * Math.exp(-e.deltaY * 0.0015), 1, 8)); }, { passive: false });
+    addEventListener('keydown', e => { if (this.isOpen() && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.close(); } }, true);
+    addEventListener('popstate', () => { if (this.isOpen()) { this.pushed = false; this.close(true); } });
+  },
+  isOpen() { return !!(this.el && !this.el.classList.contains('hidden')); },
+  zoomAt(cx, cy, ns) {
+    const ox = cx - innerWidth / 2, oy = cy - innerHeight / 2;
+    this.x = ox - (ox - this.x) * ns / this.s; this.y = oy - (oy - this.y) * ns / this.s; this.s = ns;
+    if (ns <= 1) { this.s = 1; this.x = 0; this.y = 0; }
+    this.apply();
+  },
+  apply() { this.img.style.transform = `translate(${this.x}px, ${this.y}px) scale(${this.s})`; this.el.classList.toggle('zoomed', this.s > 1); },
+  open(id, src) {
+    if (!src) return; this.build();
+    this.id = id; this.img.src = src; this.s = 1; this.x = 0; this.y = 0; this.pts.clear(); this.apply();
+    if (!this.isOpen()) {
+      this.el.classList.remove('hidden');
+      try { history.pushState(Object.assign({}, history.state, { pbViewer: 1 }), ''); this.pushed = true; } catch { this.pushed = false; }
+    }
+  },
+  close(fromPop) {
+    if (!this.isOpen()) return;
+    this.el.classList.add('hidden'); this.img.removeAttribute('src'); this.id = null; this.pts.clear();
+    if (!fromPop && this.pushed) { this.pushed = false; try { history.back(); } catch {} }
+  },
+  // Close if the image being viewed is no longer on screen (round changed, answer revealed or hidden, blank screen…)
+  check(visibleIds) { if (this.isOpen() && !visibleIds.includes(this.id)) this.close(); },
+};
+function fitText(el, maxEm, minEm) {
+  if (!el || el.classList.contains('hidden')) return;
+  let em = maxEm; el.style.fontSize = em + 'em';
+  while (em > minEm && el.scrollWidth > el.clientWidth + 1) { em = Math.max(minEm, em - 0.1); el.style.fontSize = em + 'em'; }
+}
