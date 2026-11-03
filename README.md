@@ -1,6 +1,16 @@
 # Picture Buzzer
 
-A real-time buzzer for picture-guessing games. One static `index.html` gives you three synced views:
+A real-time buzzer for picture-guessing games. One static `index.html` serves three views: the host runs the round, players buzz in from a phone or computer, and a stream view drops into OBS.
+
+Made by Craig Kohler (https://craigkohler.com).
+
+Live: https://craigkoh.github.io/picture-buzzer/
+
+![Landing page: host a game, join with a room code, or open the stream view](docs/landing.png)
+
+![Host screen during a round. The picture is in the middle, and the answer stays on the host side until reveal](docs/host.jpg)
+
+![Player screen with the picture and the buzz button](docs/player.jpg)
 
 | View | URL | Who |
 |---|---|---|
@@ -8,7 +18,7 @@ A real-time buzzer for picture-guessing games. One static `index.html` gives you
 | Player | `index.html?view=player&room=CODE` | Friends on a phone or computer. Big BUZZ button (or Space) |
 | Stream | `index.html?view=stream&room=CODE` | OBS browser source, 1920×1080. Never shows the answer before you reveal |
 
-Opening `index.html` with no parameters shows a landing page (Host / Join with code / Stream).
+Open `index.html` with no parameters for the landing page.
 
 ## New in 1.1
 - **Full-screen viewer**: tap or click any picture (on the player or host screen) to open it full screen. Pinch or double-tap to zoom on phones; scroll wheel or click to zoom and drag to pan on desktop. Close with ✕, Esc, a tap outside the picture, or the phone's Back gesture. It closes by itself if the host reveals, changes round, or blanks the screen, so it never shows a stale picture or the answer early.
